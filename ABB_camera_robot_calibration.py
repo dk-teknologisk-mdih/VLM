@@ -18,13 +18,13 @@ class RobotDataCollector:
     # Reference pose where camera points DOWN at the board
     # This is the "base" orientation - all other poses are variations of this
     REFERENCE_POSE = {
-        'x': 178.43,
-        'y': 272.71,
-        'z': 482.31,
-        'q1': 0.23291,   # w
-        'q2': -0.68474,  # x
-        'q3': -0.63773,  # y
-        'q4': 0.2649     # z
+        'x': 229.25,
+        'y': 222.98,
+        'z': 570.85,
+        'q1': 0.25415,   # w
+        'q2': -0.66263,  # x
+        'q3': -0.64590,  # y
+        'q4': 0.28134    # z
     }
     
     def __init__(self, robot_ip: str, robot_port: int = 50000, output_dir: str = "gripper_camera_calib", 
@@ -325,7 +325,7 @@ class RobotDataCollector:
     # Camera Functions
     # =========================================================
     
-    def get_camera_intrinsics(self, resolution=(1920, 1080)):
+    def get_camera_intrinsics(self, resolution=(1280, 720)):
         """Get camera intrinsic parameters from RealSense camera"""
         pipeline = rs.pipeline()
         config = rs.config()
@@ -333,6 +333,8 @@ class RobotDataCollector:
         
         try:
             pipeline.start(config)
+            sensor = pipeline.get_active_profile().get_device().query_sensors()[1]
+            sensor.set_option(rs.option.exposure, 200)
             
             # Get the active profile
             profile = pipeline.get_active_profile()
@@ -355,7 +357,7 @@ class RobotDataCollector:
         finally:
             pipeline.stop()
     
-    def save_camera_intrinsics(self, filepath: str, resolution=(1920, 1080)):
+    def save_camera_intrinsics(self, filepath: str, resolution=(1280, 720)):
         """Load camera intrinsic parameters and save them to a txt file"""
         if not self.camera_available:
             print("Warning: No camera available to get intrinsics")
@@ -416,7 +418,7 @@ class RobotDataCollector:
             print(f"Error getting camera intrinsics: {e}")
             return False
     
-    def capture_realsense_image(self, resolution=(1920, 1080)):
+    def capture_realsense_image(self, resolution=(1280, 720)):
         """Capture an image from RealSense camera"""
         pipeline = rs.pipeline()
         config = rs.config()
@@ -586,26 +588,26 @@ class RobotDataCollector:
 
 def main():
     # Configuration
-    # ROBOT_IP = "192.168.125.1"  # RobotStudio physical robot
-    ROBOT_IP = "127.0.0.1"  # RobotStudio simulation
+    ROBOT_IP = "192.168.125.1"  # RobotStudio physical robot
+    # ROBOT_IP = "127.0.0.1"  # RobotStudio simulation
     USE_CAMERA = True
     
     # Board center - estimate from reference pose
     # The reference pose looks at the board from above
     # Estimate board center is roughly below the reference position
     BOARD_CENTER = {
-        'x': 178.43,   # Same X as reference (camera looking straight down)
-        'y': 272.71,   # Same Y as reference
+        'x': 229.25,   # Same X as reference (camera looking straight down)
+        'y': 222.98,   # Same Y as reference
         'z': 0         # Board is on the table (Z=0 or adjust as needed)
     }
-    
-    NUM_POSES = 1
-    HEMISPHERE_RADIUS = 480  # Approximate distance from reference pose to board
+  
+    NUM_POSES = 10
+    HEMISPHERE_RADIUS = 600  # Approximate distance from reference pose to board
     MAX_ANGLE_FROM_VERTICAL = 30  # Maximum tilt angle in degrees
     
     collector = RobotDataCollector(
         robot_ip=ROBOT_IP,
-        output_dir="gripper_camera_calib_TEST",
+        output_dir="ABB_gripper_camera_calib",
         use_camera=USE_CAMERA,
         radius=HEMISPHERE_RADIUS,
         max_angle=MAX_ANGLE_FROM_VERTICAL
