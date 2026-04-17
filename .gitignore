@@ -10,3 +10,4 @@ ABB_gripper_camera_calib/
 *.json
 *.zip
 .env
+orchestrator.log
