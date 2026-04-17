@@ -27,7 +27,7 @@ import urllib3
 import yaml
 from dotenv import load_dotenv
 
-from VLM_programming_orchestrator import (Config, VLMOrchestrator,
+from vlm_programming_orchestrator import (Config, VLMOrchestrator,
                                           run_continuous)
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)

@@ -104,7 +104,7 @@ class VLMOrchestrator:
     # ---- State handlers ----------------------------------------------
 
     def _state_run_gui(self):
-        from .GUI import get_user_input  # pylint: disable=C0415
+        from .gui import get_user_input  # pylint: disable=C0415
         logger.info("Launching GUI for user input...")
         self.gui_config = get_user_input()
         if self.gui_config is None:

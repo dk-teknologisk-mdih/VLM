@@ -2,7 +2,7 @@
 Test script for RobotStudio automation.
 """
 
-from VLM_programming_orchestrator import Config, RobotStudioAutomation
+from vlm_programming_orchestrator import Config, RobotStudioAutomation
 
 
 def main():
