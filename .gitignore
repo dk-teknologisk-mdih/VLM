@@ -1,5 +1,12 @@
 gripper_camera_calib*/
 VLM_output/
+VLM_input/
+LLM_output/
+LLM_input/
+.venv/
+__pycache__/
+ABB_gripper_camera_calib/
 *.png
 *.json
 *.zip
+.env
