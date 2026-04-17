@@ -15,7 +15,8 @@ def save_stacking_plan(detector, stacking_plan_3d, filename):
     """Save 3D stacking plan to YAML file."""
     save_path = detector.ensure_output_dir(filename)
     with open(save_path, "w") as f:
-        yaml.dump(stacking_plan_3d, f, default_flow_style=False, sort_keys=False)
+        yaml.dump(stacking_plan_3d, f,
+                  default_flow_style=False, sort_keys=False)
         print(f"Stacking plan with 3D coordinates saved to: {save_path}")
 
 

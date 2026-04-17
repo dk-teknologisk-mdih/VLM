@@ -25,7 +25,8 @@ def ask_human_review() -> bool:
         return result
     except Exception as e:
         logger.error(f"Human review dialog failed: {e}")
-        response = input("Did the simulation look correct? (y/n): ").strip().lower()
+        response = input(
+            "Did the simulation look correct? (y/n): ").strip().lower()
         return response in ("y", "yes")
 
 

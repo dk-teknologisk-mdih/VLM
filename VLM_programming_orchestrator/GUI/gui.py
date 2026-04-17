@@ -50,7 +50,8 @@ class VLMInputGUI:
         self.click_mode_active = False
 
         # White paper detection (for stack step 3)
-        self.detected_papers = []  # List of (x, y, w, h) bounding rects in pixel coords
+        # List of (x, y, w, h) bounding rects in pixel coords
+        self.detected_papers = []
         self.selected_paper_idx = None  # Index of selected paper
 
         # Sort mode: block-to-position mapping
@@ -89,8 +90,10 @@ class VLMInputGUI:
         self.root.bind("<d>", lambda e: self._adjust_camera("exposure", -50))
         self.root.bind("<r>", lambda e: self._adjust_camera("contrast", 5))
         self.root.bind("<f>", lambda e: self._adjust_camera("contrast", -5))
-        self.root.bind("<t>", lambda e: self._adjust_camera("brightness_target", 5))
-        self.root.bind("<g>", lambda e: self._adjust_camera("brightness_target", -5))
+        self.root.bind("<t>", lambda e: self._adjust_camera(
+            "brightness_target", 5))
+        self.root.bind("<g>", lambda e: self._adjust_camera(
+            "brightness_target", -5))
 
     def _init_camera(self):
         """Initialize RealSense camera."""
@@ -100,11 +103,13 @@ class VLMInputGUI:
         try:
             self.pipeline = rs.pipeline()
             config = rs.config()
-            config.enable_stream(rs.stream.color, 1280, 720, rs.format.rgb8, 30)
+            config.enable_stream(rs.stream.color, 1280,
+                                 720, rs.format.rgb8, 30)
             self.pipeline.start(config)
             self.camera_running = True
-            #set exposure
-            sensor = self.pipeline.get_active_profile().get_device().query_sensors()[1]
+            # set exposure
+            sensor = self.pipeline.get_active_profile(
+            ).get_device().query_sensors()[1]
             sensor.set_option(rs.option.exposure, self.camera_exposure)
             # set contrast
             sensor.set_option(rs.option.contrast, self.camera_contrast)
@@ -190,10 +195,12 @@ class VLMInputGUI:
 
             metered = sum(measurements) / len(measurements)
             error = metered - s["target"]
-            print(f"Auto-exposure [{s['iteration']}]: masked_mean={metered:.1f}, target={s['target']}, exposure={self.camera_exposure}, error={error:.1f}")
+            print(
+                f"Auto-exposure [{s['iteration']}]: masked_mean={metered:.1f}, target={s['target']}, exposure={self.camera_exposure}, error={error:.1f}")
 
             if abs(error) <= s["tolerance"] or s["iteration"] >= s["max_iter"]:
-                print(f"Auto-exposure converged at exposure={self.camera_exposure} (masked_mean={metered:.1f})")
+                print(
+                    f"Auto-exposure converged at exposure={self.camera_exposure} (masked_mean={metered:.1f})")
                 self._auto_exposure_done()
                 return
 
@@ -201,7 +208,8 @@ class VLMInputGUI:
             # Dampen to avoid overshoot: blend 60% towards ideal, keep 40% current
             if metered > 0:
                 ideal_exposure = self.camera_exposure * (s["target"] / metered)
-                new_exposure = int(self.camera_exposure * 0.4 + ideal_exposure * 0.6)
+                new_exposure = int(self.camera_exposure *
+                                   0.4 + ideal_exposure * 0.6)
             else:
                 new_exposure = self.camera_exposure + 50
 
@@ -225,16 +233,20 @@ class VLMInputGUI:
         if not self.pipeline or not self.camera_running:
             return
         try:
-            sensor = self.pipeline.get_active_profile().get_device().query_sensors()[1]
+            sensor = self.pipeline.get_active_profile(
+            ).get_device().query_sensors()[1]
             if param == "exposure":
                 self.camera_exposure = max(1, self.camera_exposure + delta)
                 sensor.set_option(rs.option.exposure, self.camera_exposure)
             elif param == "contrast":
-                self.camera_contrast = max(0, min(100, self.camera_contrast + delta))
+                self.camera_contrast = max(
+                    0, min(100, self.camera_contrast + delta))
                 sensor.set_option(rs.option.contrast, self.camera_contrast)
             elif param == "brightness_target":
-                self.brightness_target = max(10, min(245, self.brightness_target + delta))
-            print(f"Camera {param} set to {getattr(self, f'camera_{param}') if param != 'brightness_target' else self.brightness_target}")
+                self.brightness_target = max(
+                    10, min(245, self.brightness_target + delta))
+            print(f"Camera {param} set to {getattr(self, f'camera_{param}')
+                  if param != 'brightness_target' else self.brightness_target}")
             self._update_camera_info_label()
         except Exception as e:
             print(f"Failed to adjust {param}: {e}")
@@ -259,30 +271,36 @@ class VLMInputGUI:
         # Configure vibrant styles
         style.configure("Vibrant.TFrame", background=self.PALETTE["bg_dark"])
         style.configure("Title.TLabel", font=("Arial", 18, "bold"),
-                       foreground=self.PALETTE["accent_cyan"], background=self.PALETTE["bg_dark"])
+                        foreground=self.PALETTE["accent_cyan"], background=self.PALETTE["bg_dark"])
         style.configure("Step.TLabel", font=("Arial", 12, "bold"),
-                       foreground=self.PALETTE["accent_pink"], background=self.PALETTE["bg_dark"])
-        style.configure("Vibrant.TLabelframe", background=self.PALETTE["bg_dark"])
+                        foreground=self.PALETTE["accent_pink"], background=self.PALETTE["bg_dark"])
+        style.configure("Vibrant.TLabelframe",
+                        background=self.PALETTE["bg_dark"])
         style.configure("Vibrant.TLabelframe.Label", font=("Arial", 11, "bold"),
-                       foreground=self.PALETTE["accent_yellow"], background=self.PALETTE["bg_dark"])
-        style.configure("Action.TButton", font=("Arial", 11, "bold"), padding=8)
+                        foreground=self.PALETTE["accent_yellow"], background=self.PALETTE["bg_dark"])
+        style.configure("Action.TButton", font=(
+            "Arial", 11, "bold"), padding=8)
         style.map("Action.TButton",
-                 foreground=[('active', self.PALETTE["bg_dark"]), ('!active', self.PALETTE["text_bright"])],
-                 background=[('active', self.PALETTE["accent_cyan"]), ('!active', self.PALETTE["accent_purple"])])
+                  foreground=[('active', self.PALETTE["bg_dark"]),
+                              ('!active', self.PALETTE["text_bright"])],
+                  background=[('active', self.PALETTE["accent_cyan"]), ('!active', self.PALETTE["accent_purple"])])
 
         # Main background canvas for gradient and particles
-        self.bg_canvas = tk.Canvas(self.root, width=1750, height=820, highlightthickness=0)
+        self.bg_canvas = tk.Canvas(
+            self.root, width=1750, height=820, highlightthickness=0)
         self.bg_canvas.pack(fill=tk.BOTH, expand=True)
         self._draw_gradient_background()
         self._init_particles()
 
         # Main container with two columns
         main_frame = tk.Frame(self.bg_canvas, bg=self.PALETTE["bg_dark"])
-        self.bg_canvas.create_window(875, 410, window=main_frame, width=1730, height=800)
+        self.bg_canvas.create_window(
+            875, 410, window=main_frame, width=1730, height=800)
 
         # Left side - Camera preview with glowing border
         camera_container = tk.Frame(main_frame, bg=self.PALETTE["bg_dark"])
-        camera_container.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(10, 10), pady=10)
+        camera_container.pack(side=tk.LEFT, fill=tk.BOTH,
+                              expand=True, padx=(10, 10), pady=10)
 
         # Glowing camera frame label
         # Camera header row with label and auto exposure button
@@ -290,8 +308,8 @@ class VLMInputGUI:
         camera_header.pack(fill=tk.X, pady=(0, 5))
 
         camera_label = tk.Label(camera_header, text="📷 LIVE CAMERA FEED",
-                               font=("Arial", 12, "bold"), fg=self.PALETTE["accent_cyan"],
-                               bg=self.PALETTE["bg_dark"])
+                                font=("Arial", 12, "bold"), fg=self.PALETTE["accent_cyan"],
+                                bg=self.PALETTE["bg_dark"])
         camera_label.pack(side=tk.LEFT, expand=True)
 
         self.auto_exp_btn = tk.Button(camera_header, text="☀ AUTO EXP", command=self._auto_exposure,
@@ -312,7 +330,8 @@ class VLMInputGUI:
         # Actual camera canvas inside
         self.camera_canvas = tk.Canvas(self.camera_frame_canvas, width=1280, height=720,
                                        bg=self.PALETTE["bg_light"], highlightthickness=0)
-        self.camera_frame_canvas.create_window(650, 370, window=self.camera_canvas)
+        self.camera_frame_canvas.create_window(
+            650, 370, window=self.camera_canvas)
         self.camera_image_id = None
 
         # Bind click event for target selection
@@ -322,8 +341,10 @@ class VLMInputGUI:
         self._draw_camera_placeholder()
 
         # Right side - Controls with styled background
-        self.controls_frame = tk.Frame(main_frame, bg=self.PALETTE["bg_dark"], width=380)
-        self.controls_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(0, 10), pady=10)
+        self.controls_frame = tk.Frame(
+            main_frame, bg=self.PALETTE["bg_dark"], width=380)
+        self.controls_frame.pack(
+            side=tk.RIGHT, fill=tk.Y, padx=(0, 10), pady=10)
         self.controls_frame.pack_propagate(False)
 
         # Animated title header
@@ -342,7 +363,8 @@ class VLMInputGUI:
         self.subtitle_label.pack()
 
         # Step indicator with style
-        step_frame = tk.Frame(self.controls_frame, bg=self.PALETTE["bg_mid"], padx=15, pady=8)
+        step_frame = tk.Frame(self.controls_frame,
+                              bg=self.PALETTE["bg_mid"], padx=15, pady=8)
         step_frame.pack(fill=tk.X, pady=(0, 10))
 
         self.step_label = tk.Label(step_frame, text="⚡ Step 1 of 3",
@@ -357,7 +379,8 @@ class VLMInputGUI:
         self._draw_progress_bar(33)
 
         # Container for step content
-        self.step_container = tk.Frame(self.controls_frame, bg=self.PALETTE["bg_dark"])
+        self.step_container = tk.Frame(
+            self.controls_frame, bg=self.PALETTE["bg_dark"])
         self.step_container.pack(fill=tk.BOTH, expand=True)
 
         # Create all step frames
@@ -448,8 +471,10 @@ class VLMInputGUI:
                 'id': None
             }
             particle['id'] = self.bg_canvas.create_oval(
-                particle['x'] - particle['size'], particle['y'] - particle['size'],
-                particle['x'] + particle['size'], particle['y'] + particle['size'],
+                particle['x'] - particle['size'], particle['y'] -
+                particle['size'],
+                particle['x'] + particle['size'], particle['y'] +
+                particle['size'],
                 fill=particle['color'], outline=''
             )
             self.particles.append(particle)
@@ -532,9 +557,11 @@ class VLMInputGUI:
 
         # Draw cyberpunk-style grid
         for i in range(0, 1280, 40):
-            self.camera_canvas.create_line(i, 0, i, 720, fill='#2a1a4a', width=1, tags='placeholder')
+            self.camera_canvas.create_line(
+                i, 0, i, 720, fill='#2a1a4a', width=1, tags='placeholder')
         for i in range(0, 720, 40):
-            self.camera_canvas.create_line(0, i, 1280, i, fill='#2a1a4a', width=1, tags='placeholder')
+            self.camera_canvas.create_line(
+                0, i, 1280, i, fill='#2a1a4a', width=1, tags='placeholder')
 
         # Central icon
         self.camera_canvas.create_oval(cx-50, cy-50, cx+50, cy+50,
@@ -553,7 +580,8 @@ class VLMInputGUI:
         self.progress_canvas.delete('all')
 
         # Background
-        self.progress_canvas.create_rectangle(0, 0, 340, 20, fill=self.PALETTE['bg_light'], outline='')
+        self.progress_canvas.create_rectangle(
+            0, 0, 340, 20, fill=self.PALETTE['bg_light'], outline='')
 
         # Progress fill with gradient effect
         width = int(340 * value / 100)
@@ -565,7 +593,8 @@ class VLMInputGUI:
                 x1 = i * segment_width
                 x2 = min((i + 1) * segment_width, width)
                 if x1 < width:
-                    self.progress_canvas.create_rectangle(x1, 2, x2, 18, fill=color, outline='')
+                    self.progress_canvas.create_rectangle(
+                        x1, 2, x2, 18, fill=color, outline='')
 
         # Glowing edge
         if width > 0:
@@ -573,24 +602,30 @@ class VLMInputGUI:
                                                   fill=self.PALETTE['accent_cyan'], outline='')
 
         # Border
-        self.progress_canvas.create_rectangle(0, 0, 340, 20, outline=self.PALETTE['accent_purple'], width=2)
+        self.progress_canvas.create_rectangle(
+            0, 0, 340, 20, outline=self.PALETTE['accent_purple'], width=2)
 
     def _create_step1_frame(self):
         """Create Step 1: Task Selection with vibrant visual cards."""
         frame = tk.Frame(self.step_container, bg=self.PALETTE["bg_dark"])
 
         # Canvas for visual task selection
-        canvas = tk.Canvas(frame, width=340, height=380, bg=self.PALETTE["bg_dark"], highlightthickness=0)
+        canvas = tk.Canvas(frame, width=340, height=380,
+                           bg=self.PALETTE["bg_dark"], highlightthickness=0)
         canvas.pack(fill=tk.BOTH, expand=True)
 
         # Decorative background pattern
         for i in range(0, 380, 30):
-            canvas.create_line(0, i, 340, i, fill=self.PALETTE["bg_mid"], width=1)
+            canvas.create_line(
+                0, i, 340, i, fill=self.PALETTE["bg_mid"], width=1)
 
         # Title with glow effect
-        canvas.create_text(172, 27, text="🎮 SELECT YOUR MISSION", fill=self.PALETTE["bg_light"], font=("Arial", 14, "bold"))
-        canvas.create_text(170, 25, text="🎮 SELECT YOUR MISSION", fill=self.PALETTE["accent_cyan"], font=("Arial", 14, "bold"))
-        canvas.create_text(170, 50, text="⚡ Click a card to begin ⚡", fill=self.PALETTE["accent_yellow"], font=("Arial", 10))
+        canvas.create_text(172, 27, text="🎮 SELECT YOUR MISSION",
+                           fill=self.PALETTE["bg_light"], font=("Arial", 14, "bold"))
+        canvas.create_text(170, 25, text="🎮 SELECT YOUR MISSION",
+                           fill=self.PALETTE["accent_cyan"], font=("Arial", 14, "bold"))
+        canvas.create_text(170, 50, text="⚡ Click a card to begin ⚡",
+                           fill=self.PALETTE["accent_yellow"], font=("Arial", 10))
 
         # Task card dimensions
         card_width = 300
@@ -610,24 +645,32 @@ class VLMInputGUI:
             outline=self.PALETTE["accent_purple"], width=3
         )
         # Icon background
-        canvas.create_oval(50, stack_y + 30, 90, stack_y + 70, fill=self.PALETTE["accent_orange"], outline="")
+        canvas.create_oval(50, stack_y + 30, 90, stack_y +
+                           70, fill=self.PALETTE["accent_orange"], outline="")
         canvas.create_text(70, stack_y + 50, text="📦", font=("Arial", 20))
-        canvas.create_text(190, stack_y + 40, text="STACK BLOCKS", fill=self.PALETTE["text_bright"], font=("Arial", 14, "bold"))
-        canvas.create_text(190, stack_y + 65, text="Build a colorful tower", fill=self.PALETTE["text_dim"], font=("Arial", 10))
-        canvas.create_text(190, stack_y + 85, text="by stacking blocks up", fill=self.PALETTE["text_dim"], font=("Arial", 10))
-        canvas.create_text(190, stack_y + 110, text="▶ CLICK TO SELECT", fill=self.PALETTE["accent_cyan"], font=("Arial", 9, "bold"))
+        canvas.create_text(190, stack_y + 40, text="STACK BLOCKS",
+                           fill=self.PALETTE["text_bright"], font=("Arial", 14, "bold"))
+        canvas.create_text(190, stack_y + 65, text="Build a colorful tower",
+                           fill=self.PALETTE["text_dim"], font=("Arial", 10))
+        canvas.create_text(190, stack_y + 85, text="by stacking blocks up",
+                           fill=self.PALETTE["text_dim"], font=("Arial", 10))
+        canvas.create_text(190, stack_y + 110, text="▶ CLICK TO SELECT",
+                           fill=self.PALETTE["accent_cyan"], font=("Arial", 9, "bold"))
 
         # Bind click events - auto advance to step 2 with visual feedback
         def select_stack(event):
             self.task_var.set("stack")
-            canvas.itemconfig(self.stack_card, fill=self.PALETTE["accent_purple"], outline=self.PALETTE["accent_cyan"])
-            self.root.after(300, lambda: self._show_step(2))  # Flash effect then advance
+            canvas.itemconfig(
+                self.stack_card, fill=self.PALETTE["accent_purple"], outline=self.PALETTE["accent_cyan"])
+            # Flash effect then advance
+            self.root.after(300, lambda: self._show_step(2))
 
         # Bind to all elements in card region
         canvas.tag_bind(self.stack_card, "<Button-1>", select_stack)
 
         # Create invisible clickable region over the card
-        stack_region = canvas.create_rectangle(20, stack_y, 20 + card_width, stack_y + card_height, fill="", outline="")
+        stack_region = canvas.create_rectangle(
+            20, stack_y, 20 + card_width, stack_y + card_height, fill="", outline="")
         canvas.tag_bind(stack_region, "<Button-1>", select_stack)
 
         self.step_frames["step1"] = frame
@@ -638,8 +681,8 @@ class VLMInputGUI:
 
         # Header
         header = tk.Label(frame, text="🏗️ ARRANGE STACK ORDER",
-                         font=("Arial", 12, "bold"), fg=self.PALETTE["accent_yellow"],
-                         bg=self.PALETTE["bg_dark"])
+                          font=("Arial", 12, "bold"), fg=self.PALETTE["accent_yellow"],
+                          bg=self.PALETTE["bg_dark"])
         header.pack(pady=(5, 5))
 
         # Create stack builder
@@ -653,21 +696,28 @@ class VLMInputGUI:
         frame = tk.Frame(self.step_container, bg=self.PALETTE["bg_dark"])
 
         # Canvas for block selection UI
-        canvas = tk.Canvas(frame, width=340, height=480, bg=self.PALETTE["bg_dark"], highlightthickness=0)
+        canvas = tk.Canvas(frame, width=340, height=480,
+                           bg=self.PALETTE["bg_dark"], highlightthickness=0)
         canvas.pack(fill=tk.BOTH, expand=True)
         self.sort_step2_canvas = canvas
 
         # Draw decorative background pattern
         for i in range(0, 480, 25):
-            canvas.create_line(0, i, 340, i, fill=self.PALETTE["bg_mid"], width=1)
+            canvas.create_line(
+                0, i, 340, i, fill=self.PALETTE["bg_mid"], width=1)
         for i in range(0, 340, 25):
-            canvas.create_line(i, 0, i, 480, fill=self.PALETTE["bg_mid"], width=1)
+            canvas.create_line(
+                i, 0, i, 480, fill=self.PALETTE["bg_mid"], width=1)
 
         # Title with glow
-        canvas.create_text(172, 22, text="🎯 MAP BLOCKS TO TARGETS", fill=self.PALETTE["bg_light"], font=("Arial", 12, "bold"))
-        canvas.create_text(170, 20, text="🎯 MAP BLOCKS TO TARGETS", fill=self.PALETTE["accent_pink"], font=("Arial", 12, "bold"))
-        canvas.create_text(170, 42, text="1️⃣ Click a block to select", fill=self.PALETTE["accent_cyan"], font=("Arial", 9))
-        canvas.create_text(170, 58, text="2️⃣ Click on camera to place it", fill=self.PALETTE["accent_cyan"], font=("Arial", 9))
+        canvas.create_text(172, 22, text="🎯 MAP BLOCKS TO TARGETS",
+                           fill=self.PALETTE["bg_light"], font=("Arial", 12, "bold"))
+        canvas.create_text(170, 20, text="🎯 MAP BLOCKS TO TARGETS",
+                           fill=self.PALETTE["accent_pink"], font=("Arial", 12, "bold"))
+        canvas.create_text(170, 42, text="1️⃣ Click a block to select",
+                           fill=self.PALETTE["accent_cyan"], font=("Arial", 9))
+        canvas.create_text(170, 58, text="2️⃣ Click on camera to place it",
+                           fill=self.PALETTE["accent_cyan"], font=("Arial", 9))
 
         # Block selection buttons - 5 blocks
         block_colors = {
@@ -689,7 +739,8 @@ class VLMInputGUI:
             y = y_start + i * (block_height + 8)
 
             # Shadow
-            canvas.create_rectangle(24, y + 3, 134, y + block_height + 3, fill="#0f0f23", outline="", tags=f"block_{color}")
+            canvas.create_rectangle(
+                24, y + 3, 134, y + block_height + 3, fill="#0f0f23", outline="", tags=f"block_{color}")
 
             # Main block button
             rect = canvas.create_rectangle(
@@ -699,8 +750,10 @@ class VLMInputGUI:
 
             # Block label
             text_color = "#1a1a2e" if color == "yellow" else "white"
-            canvas.create_text(75, y + 20, text=display_labels[color], fill=text_color, font=("Arial", 10, "bold"), tags=f"block_{color}")
-            canvas.create_text(75, y + 39, text="Click to select", fill="#cccccc", font=("Arial", 7), tags=f"block_{color}")
+            canvas.create_text(75, y + 20, text=display_labels[color], fill=text_color, font=(
+                "Arial", 10, "bold"), tags=f"block_{color}")
+            canvas.create_text(75, y + 39, text="Click to select",
+                               fill="#cccccc", font=("Arial", 7), tags=f"block_{color}")
 
             # Status indicator area (right side) with neon styling
             status_rect = canvas.create_rectangle(
@@ -722,9 +775,12 @@ class VLMInputGUI:
             def make_select_handler(c):
                 return lambda event: self._select_sort_block(c)
 
-            canvas.tag_bind(f"block_{color}", "<Button-1>", make_select_handler(color))
-            canvas.tag_bind(f"block_{color}", "<Enter>", lambda e, c=color: self._on_block_hover(c, True))
-            canvas.tag_bind(f"block_{color}", "<Leave>", lambda e, c=color: self._on_block_hover(c, False))
+            canvas.tag_bind(f"block_{color}",
+                            "<Button-1>", make_select_handler(color))
+            canvas.tag_bind(
+                f"block_{color}", "<Enter>", lambda e, c=color: self._on_block_hover(c, True))
+            canvas.tag_bind(
+                f"block_{color}", "<Leave>", lambda e, c=color: self._on_block_hover(c, False))
 
         # Currently selected indicator with vibrant styling
         self.sort_selection_text = canvas.create_text(
@@ -741,9 +797,11 @@ class VLMInputGUI:
         # Update visual selection with neon glow
         for c, btn in self.sort_block_buttons.items():
             if c == color:
-                self.sort_step2_canvas.itemconfig(btn["rect"], outline=self.PALETTE["accent_cyan"], width=5)
+                self.sort_step2_canvas.itemconfig(
+                    btn["rect"], outline=self.PALETTE["accent_cyan"], width=5)
             else:
-                self.sort_step2_canvas.itemconfig(btn["rect"], outline="white", width=3)
+                self.sort_step2_canvas.itemconfig(
+                    btn["rect"], outline="white", width=3)
 
         # Update instruction text with vibrant color
         self.sort_step2_canvas.itemconfig(
@@ -757,10 +815,12 @@ class VLMInputGUI:
         if color in self.sort_block_buttons:
             btn = self.sort_block_buttons[color]
             if entering and self.current_mapping_block != color:
-                self.sort_step2_canvas.itemconfig(btn["rect"], fill=btn["colors"]["hover"])
+                self.sort_step2_canvas.itemconfig(
+                    btn["rect"], fill=btn["colors"]["hover"])
                 self.sort_step2_canvas.config(cursor="hand2")
             else:
-                self.sort_step2_canvas.itemconfig(btn["rect"], fill=btn["colors"]["fill"])
+                self.sort_step2_canvas.itemconfig(
+                    btn["rect"], fill=btn["colors"]["fill"])
                 self.sort_step2_canvas.config(cursor="")
 
     def _update_sort_block_status(self, color, position):
@@ -778,33 +838,47 @@ class VLMInputGUI:
         frame = tk.Frame(self.step_container, bg=self.PALETTE["bg_dark"])
 
         # Canvas for instructions
-        canvas = tk.Canvas(frame, width=340, height=380, bg=self.PALETTE["bg_dark"], highlightthickness=0)
+        canvas = tk.Canvas(frame, width=340, height=380,
+                           bg=self.PALETTE["bg_dark"], highlightthickness=0)
         canvas.pack(fill=tk.BOTH, expand=True)
 
         # Draw decorative grid background
         for i in range(0, 380, 30):
-            canvas.create_line(0, i, 340, i, fill=self.PALETTE["bg_mid"], width=1)
+            canvas.create_line(
+                0, i, 340, i, fill=self.PALETTE["bg_mid"], width=1)
         for i in range(0, 340, 30):
-            canvas.create_line(i, 0, i, 380, fill=self.PALETTE["bg_mid"], width=1)
+            canvas.create_line(
+                i, 0, i, 380, fill=self.PALETTE["bg_mid"], width=1)
 
         # Title with glow effect
-        canvas.create_text(172, 32, text="📍 SELECT TARGET PAPER", fill=self.PALETTE["bg_light"], font=("Arial", 13, "bold"))
-        canvas.create_text(170, 30, text="📍 SELECT TARGET PAPER", fill=self.PALETTE["accent_orange"], font=("Arial", 13, "bold"))
-        canvas.create_text(170, 58, text="Click a highlighted white paper", fill=self.PALETTE["accent_cyan"], font=("Arial", 10))
+        canvas.create_text(172, 32, text="📍 SELECT TARGET PAPER",
+                           fill=self.PALETTE["bg_light"], font=("Arial", 13, "bold"))
+        canvas.create_text(170, 30, text="📍 SELECT TARGET PAPER",
+                           fill=self.PALETTE["accent_orange"], font=("Arial", 13, "bold"))
+        canvas.create_text(170, 58, text="Click a highlighted white paper",
+                           fill=self.PALETTE["accent_cyan"], font=("Arial", 10))
 
         # Animated instruction box with neon border
-        canvas.create_rectangle(25, 85, 315, 230, fill=self.PALETTE["bg_mid"], outline=self.PALETTE["accent_purple"], width=3)
-        canvas.create_rectangle(28, 88, 312, 227, fill="", outline=self.PALETTE["accent_pink"], width=1)
+        canvas.create_rectangle(
+            25, 85, 315, 230, fill=self.PALETTE["bg_mid"], outline=self.PALETTE["accent_purple"], width=3)
+        canvas.create_rectangle(28, 88, 312, 227, fill="",
+                                outline=self.PALETTE["accent_pink"], width=1)
 
         # Instructions with icons
-        canvas.create_text(170, 110, text="📄 White papers are auto-detected", fill=self.PALETTE["text_bright"], font=("Arial", 10))
-        canvas.create_text(170, 135, text="and highlighted on the camera.", fill=self.PALETTE["text_bright"], font=("Arial", 10))
-        canvas.create_text(170, 165, text="👆 Click on a highlighted paper", fill=self.PALETTE["text_bright"], font=("Arial", 10))
-        canvas.create_text(170, 190, text="to set it as the target area.", fill=self.PALETTE["text_bright"], font=("Arial", 10))
-        canvas.create_text(170, 218, text="🎯 The center will be the drop point!", fill=self.PALETTE["accent_cyan"], font=("Arial", 10, "bold"))
+        canvas.create_text(170, 110, text="📄 White papers are auto-detected",
+                           fill=self.PALETTE["text_bright"], font=("Arial", 10))
+        canvas.create_text(170, 135, text="and highlighted on the camera.",
+                           fill=self.PALETTE["text_bright"], font=("Arial", 10))
+        canvas.create_text(170, 165, text="👆 Click on a highlighted paper",
+                           fill=self.PALETTE["text_bright"], font=("Arial", 10))
+        canvas.create_text(170, 190, text="to set it as the target area.",
+                           fill=self.PALETTE["text_bright"], font=("Arial", 10))
+        canvas.create_text(170, 218, text="🎯 The center will be the drop point!",
+                           fill=self.PALETTE["accent_cyan"], font=("Arial", 10, "bold"))
 
         # Status indicator
-        status_bg = canvas.create_rectangle(50, 250, 290, 295, fill=self.PALETTE["bg_light"], outline=self.PALETTE["accent_pink"], width=2)
+        status_bg = canvas.create_rectangle(
+            50, 250, 290, 295, fill=self.PALETTE["bg_light"], outline=self.PALETTE["accent_pink"], width=2)
         self.target_status_text = canvas.create_text(
             170, 272, text="⚠️ No target selected yet",
             fill="#ff6b6b", font=("Arial", 12, "bold")
@@ -816,7 +890,8 @@ class VLMInputGUI:
             170, 325, text="🔍 Searching for white papers...",
             fill=self.PALETTE["accent_yellow"], font=("Arial", 10, "bold")
         )
-        canvas.create_text(170, 355, text="✨ Then click Finish to complete! ✨", fill=self.PALETTE["text_dim"], font=("Arial", 9))
+        canvas.create_text(170, 355, text="✨ Then click Finish to complete! ✨",
+                           fill=self.PALETTE["text_dim"], font=("Arial", 9))
 
         self.step_frames["step3_stack"] = frame
 
@@ -833,7 +908,8 @@ class VLMInputGUI:
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=1)
 
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(
+            mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         papers = []
         min_area = 50000  # Minimum area to count as a paper
@@ -884,7 +960,8 @@ class VLMInputGUI:
             self.camera_canvas.delete("target_marker")
 
             # Draw marker at center of selected paper
-            self._draw_camera_marker(center_x, center_y, "#58D68D", "target_marker")
+            self._draw_camera_marker(
+                center_x, center_y, "#58D68D", "target_marker")
             self.target_marker = True
 
             if hasattr(self, 'step3_canvas'):
@@ -919,7 +996,7 @@ class VLMInputGUI:
                 "yellow": "Y", "light blue": "L",
             }
             self._draw_camera_marker(x, y, marker_colors.get(color, "#ffffff"),
-                                    f"sort_marker_{color}", label=display_initials.get(color, "?"))
+                                     f"sort_marker_{color}", label=display_initials.get(color, "?"))
 
             # Update status in the UI
             self._update_sort_block_status(color, (x_norm, y_norm))
@@ -927,7 +1004,8 @@ class VLMInputGUI:
             # Clear selection and update text
             self.current_mapping_block = None
             for c, btn in self.sort_block_buttons.items():
-                self.sort_step2_canvas.itemconfig(btn["rect"], outline="white", width=3)
+                self.sort_step2_canvas.itemconfig(
+                    btn["rect"], outline="white", width=3)
 
             # Check if all blocks are mapped
             mapped_count = len(self.sort_block_positions)
@@ -958,10 +1036,14 @@ class VLMInputGUI:
             fill=color, outline="white", width=2, tags=tag
         )
         # Crosshair lines
-        self.camera_canvas.create_line(x - 30, y, x - 22, y, fill=color, width=2, tags=tag)
-        self.camera_canvas.create_line(x + 22, y, x + 30, y, fill=color, width=2, tags=tag)
-        self.camera_canvas.create_line(x, y - 30, x, y - 22, fill=color, width=2, tags=tag)
-        self.camera_canvas.create_line(x, y + 22, x, y + 30, fill=color, width=2, tags=tag)
+        self.camera_canvas.create_line(
+            x - 30, y, x - 22, y, fill=color, width=2, tags=tag)
+        self.camera_canvas.create_line(
+            x + 22, y, x + 30, y, fill=color, width=2, tags=tag)
+        self.camera_canvas.create_line(
+            x, y - 30, x, y - 22, fill=color, width=2, tags=tag)
+        self.camera_canvas.create_line(
+            x, y + 22, x, y + 30, fill=color, width=2, tags=tag)
 
         # Optional label
         if label:
@@ -1007,7 +1089,8 @@ class VLMInputGUI:
                         text="⚠️ Not set",
                         fill="#ff6b6b"
                     )
-                    self.sort_step2_canvas.itemconfig(btn["rect"], outline="white", width=3)
+                    self.sort_step2_canvas.itemconfig(
+                        btn["rect"], outline="white", width=3)
 
             # Reset sort selection text
             if hasattr(self, 'sort_selection_text'):
@@ -1097,7 +1180,8 @@ class VLMInputGUI:
             stack_order = self.stack_builder.get_stack_order()
             if len(stack_order) < 2:
                 import tkinter.messagebox
-                tkinter.messagebox.showwarning("Warning", "Please drag at least 2 blocks into the stack before confirming.")
+                tkinter.messagebox.showwarning(
+                    "Warning", "Please drag at least 2 blocks into the stack before confirming.")
                 return
         if self.current_step < self.total_steps:
             self._show_step(self.current_step + 1)
@@ -1131,14 +1215,16 @@ class VLMInputGUI:
                     for idx, rect in enumerate(self.detected_papers):
                         # Green highlight for detected papers, cyan for selected
                         if self.selected_paper_idx == idx:
-                            color_bgr = (93, 211, 158)  # Selected: bright green
+                            # Selected: bright green
+                            color_bgr = (93, 211, 158)
                             thickness = 4
                         else:
                             color_bgr = (0, 255, 255)  # Detected: cyan
                             thickness = 3
                         box = cv2.boxPoints(rect)
                         box = np.int32(box)
-                        cv2.drawContours(display_image, [box], 0, color_bgr, thickness)
+                        cv2.drawContours(
+                            display_image, [box], 0, color_bgr, thickness)
                         # Label at center
                         cx, cy = int(rect[0][0]), int(rect[0][1])
                         label = f"Paper #{idx + 1}"
@@ -1173,8 +1259,10 @@ class VLMInputGUI:
                     self.camera_canvas.delete(self.camera_image_id)
 
                 # Create new image (at bottom layer so markers stay on top)
-                self.camera_image_id = self.camera_canvas.create_image(0, 0, anchor=tk.NW, image=photo, tags="camera_image")
-                self.camera_canvas.tag_lower("camera_image")  # Keep image below markers
+                self.camera_image_id = self.camera_canvas.create_image(
+                    0, 0, anchor=tk.NW, image=photo, tags="camera_image")
+                # Keep image below markers
+                self.camera_canvas.tag_lower("camera_image")
                 self.camera_canvas.image = photo  # Keep reference
                 self._update_camera_info_label()
 
@@ -1219,13 +1307,15 @@ class VLMInputGUI:
         if task == "stack":
             # Check if target was clicked
             if not self.target_click_pos:
-                tk.messagebox.showwarning("Warning", "Please click on a detected white paper to select a target location.")
+                tk.messagebox.showwarning(
+                    "Warning", "Please click on a detected white paper to select a target location.")
                 return
 
             stack_order = self.stack_builder.get_stack_order()
 
             if len(stack_order) < 2:
-                tk.messagebox.showwarning("Warning", "Please drag at least 2 blocks into the stack.")
+                tk.messagebox.showwarning(
+                    "Warning", "Please drag at least 2 blocks into the stack.")
                 return
 
             self.animation_running = False
@@ -1235,7 +1325,8 @@ class VLMInputGUI:
                 "task": "stack blocks",
                 "stack_order": stack_order,
                 "objects_to_manipulate": [f"{color} block" for color in stack_order],
-                "target_position": self.target_click_pos,  # (y_norm, x_norm) in 0-1000 range
+                # (y_norm, x_norm) in 0-1000 range
+                "target_position": self.target_click_pos,
                 "target_location": f"clicked position at normalized coordinates {self.target_click_pos}",
                 "brightness_target": self.brightness_target,
                 "exposure": self.camera_exposure,
@@ -1245,7 +1336,8 @@ class VLMInputGUI:
             # Check if at least one block is mapped
             if len(self.sort_block_positions) == 0:
                 import tkinter.messagebox
-                tkinter.messagebox.showwarning("Warning", "Please map at least one block to a target position.")
+                tkinter.messagebox.showwarning(
+                    "Warning", "Please map at least one block to a target position.")
                 return
 
             self.animation_running = False
@@ -1253,7 +1345,8 @@ class VLMInputGUI:
 
             self.result = {
                 "task": "sort blocks",
-                "block_positions": self.sort_block_positions,  # {"red": (x, y), ...}
+                # {"red": (x, y), ...}
+                "block_positions": self.sort_block_positions,
                 "objects_to_manipulate": [f"{color} block" for color in self.sort_block_positions.keys()],
                 "target_positions": {color: f"normalized coordinates {pos}" for color, pos in self.sort_block_positions.items()},
                 "brightness_target": self.brightness_target,
@@ -1279,7 +1372,8 @@ class VLMInputGUI:
             if isinstance(value, tuple):
                 output[key] = list(value)
             elif isinstance(value, dict):
-                output[key] = {k: list(v) if isinstance(v, tuple) else v for k, v in value.items()}
+                output[key] = {k: list(v) if isinstance(
+                    v, tuple) else v for k, v in value.items()}
             else:
                 output[key] = value
 

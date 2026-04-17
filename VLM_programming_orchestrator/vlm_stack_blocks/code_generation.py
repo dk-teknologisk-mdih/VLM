@@ -149,7 +149,7 @@ def call_claude_to_fix_code(
     """
     fix_message = (
         f"The {code_language} code you produced for the {robot_type} robot has a problem.\n\n"
-        #f"```{code_language.lower()}\n{current_code}\n```\n\n"
+        # f"```{code_language.lower()}\n{current_code}\n```\n\n"
         f"Problem / error message:\n{error_message}\n\n"
         f"Return the corrected full module only, inside a single code block."
     )

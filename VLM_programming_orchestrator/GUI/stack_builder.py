@@ -16,14 +16,17 @@ class StackBuilder:
         self.width = width
         self.height = height
 
-        self.canvas = tk.Canvas(self.frame, width=width, height=height, bg=PALETTE["bg_dark"], highlightthickness=0)
+        self.canvas = tk.Canvas(
+            self.frame, width=width, height=height, bg=PALETTE["bg_dark"], highlightthickness=0)
         self.canvas.pack(fill=tk.BOTH, expand=True)
 
         # Draw decorative grid background
         for i in range(0, height, 25):
-            self.canvas.create_line(0, i, width, i, fill=PALETTE["bg_mid"], width=1)
+            self.canvas.create_line(
+                0, i, width, i, fill=PALETTE["bg_mid"], width=1)
         for i in range(0, width, 25):
-            self.canvas.create_line(i, 0, i, height, fill=PALETTE["bg_mid"], width=1)
+            self.canvas.create_line(
+                i, 0, i, height, fill=PALETTE["bg_mid"], width=1)
 
         # Title
         self.canvas.create_text(
@@ -74,18 +77,18 @@ class StackBuilder:
             )
 
         self.canvas.create_text(stack_x + 63, self.slots[-1], text="⬆ TOP",
-                               fill=PALETTE["accent_cyan"], font=("Arial", 8, "bold"))
+                                fill=PALETTE["accent_cyan"], font=("Arial", 8, "bold"))
         self.canvas.create_text(stack_x + 63, self.slots[0], text="⬇ BTM",
-                               fill=PALETTE["accent_orange"], font=("Arial", 8, "bold"))
+                                fill=PALETTE["accent_orange"], font=("Arial", 8, "bold"))
 
         # Separator line
         sep_y = 295
         self.canvas.create_line(20, sep_y, width - 20, sep_y,
-                               fill=PALETTE["accent_purple"], width=1, dash=(4, 4))
+                                fill=PALETTE["accent_purple"], width=1, dash=(4, 4))
 
         # --- Pool area (bottom, two rows of 3) ---
         self.canvas.create_text(width // 2, 312, text="AVAILABLE BLOCKS",
-                               fill=PALETTE["accent_yellow"], font=("Arial", 9, "bold"))
+                                fill=PALETTE["accent_yellow"], font=("Arial", 9, "bold"))
 
         # Two rows of 3 blocks, centered
         block_w, block_h = 95, 42
@@ -97,7 +100,8 @@ class StackBuilder:
         # Create all blocks in the pool
         self.blocks = {}
         self.block_in_slot = {}  # color -> slot index (None if in pool)
-        self.slot_contents = {}  # slot index -> color (which block is in each slot)
+        # slot index -> color (which block is in each slot)
+        self.slot_contents = {}
         self.pool_positions = {}  # color -> (x, y) home position in pool
 
         for i, color in enumerate(ALL_BLOCK_COLORS):
@@ -159,7 +163,8 @@ class StackBuilder:
                 # Swap: move occupant to dropped block's original position
                 if original_slot is not None:
                     # Dropped block was in a slot -> swap slots
-                    self.blocks[occupant_color].move_to(self.slot_x, self.slots[original_slot])
+                    self.blocks[occupant_color].move_to(
+                        self.slot_x, self.slots[original_slot])
                     self.block_in_slot[occupant_color] = original_slot
                     self.slot_contents[original_slot] = occupant_color
                 else:

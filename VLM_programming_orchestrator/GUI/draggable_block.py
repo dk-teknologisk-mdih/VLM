@@ -101,7 +101,8 @@ class DraggableBlock:
     def _on_release(self, event):
         """Handle drop."""
         self.is_dragging = False
-        self.canvas.itemconfig(self.rect, width=3, outline="white", fill=self.colors["fill"])
+        self.canvas.itemconfig(
+            self.rect, width=3, outline="white", fill=self.colors["fill"])
         self.canvas.config(cursor="")
         if self.on_drop_callback:
             self.on_drop_callback(self, event.x, event.y)
@@ -126,6 +127,7 @@ class DraggableBlock:
     def highlight(self, on=True):
         """Highlight block as potential swap target."""
         if on:
-            self.canvas.itemconfig(self.rect, outline=self.colors["glow"], width=4)
+            self.canvas.itemconfig(
+                self.rect, outline=self.colors["glow"], width=4)
         else:
             self.canvas.itemconfig(self.rect, outline="white", width=3)

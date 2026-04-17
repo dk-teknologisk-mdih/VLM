@@ -60,7 +60,8 @@ class VLMOrchestrator:
         try:
             config.ftp_shared_dir.mkdir(parents=True, exist_ok=True)
         except (OSError, PermissionError) as e:
-            logger.warning(f"Could not ensure FTP shared dir {config.ftp_shared_dir}: {e}")
+            logger.warning(
+                f"Could not ensure FTP shared dir {config.ftp_shared_dir}: {e}")
 
     # ------------------------------------------------------------------
     def run(self):
@@ -95,7 +96,8 @@ class VLMOrchestrator:
         if self.state == State.DONE:
             logger.info("Pipeline cycle completed successfully.")
         else:
-            logger.error(f"Pipeline ended in error. Last error: {self.error_message}")
+            logger.error(
+                f"Pipeline ended in error. Last error: {self.error_message}")
 
     # ---- State handlers ----------------------------------------------
 
@@ -198,11 +200,13 @@ class VLMOrchestrator:
     def _state_validate(self):
         if not self.robotstudio.app:
             if not self.robotstudio.connect_to_robotstudio():
-                logger.warning("RobotStudio not available. Skipping validation.")
+                logger.warning(
+                    "RobotStudio not available. Skipping validation.")
                 self.state = State.TRANSFER_TO_ROBOT
                 return
 
-        syntax_ok, error_msg = self.robotstudio.paste_code_and_apply(self.current_code)
+        syntax_ok, error_msg = self.robotstudio.paste_code_and_apply(
+            self.current_code)
         if syntax_ok:
             logger.info("Syntax validation passed.")
             self.state = State.SIMULATE
@@ -239,7 +243,8 @@ class VLMOrchestrator:
             logger.info("Human approved the simulation.")
             self.state = State.TRANSFER_TO_ROBOT
         else:
-            logger.info(f"Human rejected the simulation. Feedback: {feedback!r}")
+            logger.info(
+                f"Human rejected the simulation. Feedback: {feedback!r}")
             self.error_message = (
                 "Human review: the simulation behaviour was wrong.\n"
                 f"User feedback: {feedback or '(none provided)'}"
@@ -312,7 +317,8 @@ def run_continuous(config: Config, gui_config: dict | None = None):
         logger.info(f"CYCLE {cycle}")
         logger.info("=" * 60)
 
-        orch = VLMOrchestrator(config, gui_config=initial_gui if cycle == 1 else None)
+        orch = VLMOrchestrator(
+            config, gui_config=initial_gui if cycle == 1 else None)
         try:
             orch.run()
         except KeyboardInterrupt:
@@ -324,7 +330,8 @@ def run_continuous(config: Config, gui_config: dict | None = None):
         finally:
             orch.shutdown()
 
-        logger.info(f"Waiting {config.cycle_delay_seconds}s before next cycle...")
+        logger.info(
+            f"Waiting {config.cycle_delay_seconds}s before next cycle...")
         try:
             time.sleep(config.cycle_delay_seconds)
         except KeyboardInterrupt:

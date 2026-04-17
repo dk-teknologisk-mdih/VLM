@@ -23,7 +23,6 @@ class RobotConnection:
         self.sock: Optional[socket.socket] = None
         self.sock_file = None
 
-
     def connect(self) -> bool:
         """Connect to the robot's TCP server and wait for READY."""
         logger.info(
@@ -46,7 +45,6 @@ class RobotConnection:
             logger.error(f"Failed to connect to robot: {e}")
             return False
 
-
     def disconnect(self):
         """Gracefully disconnect from the robot."""
         try:
@@ -59,7 +57,6 @@ class RobotConnection:
         finally:
             self._close()
 
-
     def ping(self) -> bool:
         """Health check."""
         try:
@@ -68,7 +65,6 @@ class RobotConnection:
             return response == "PONG"
         except Exception:
             return False
-
 
     def load_module(self, filename: str) -> tuple[bool, str]:
         """
@@ -89,7 +85,6 @@ class RobotConnection:
             logger.error(f"Unexpected load response: {response}")
             return False, response
 
-
     def start_execution(self) -> tuple[bool, str]:
         """
         Send START command, wait for START_OK, then wait for DONE.
@@ -99,7 +94,8 @@ class RobotConnection:
         response = self._receive()
 
         if response == "START_OK":
-            logger.info("Execution started on robot. Waiting for completion...")
+            logger.info(
+                "Execution started on robot. Waiting for completion...")
         elif response.startswith("EXEC_ERR:"):
             reason = response.split(":", 1)[1]
             logger.error(f"Start failed: {reason}")
@@ -129,13 +125,11 @@ class RobotConnection:
             logger.error(f"Unexpected execution response: {response}")
             return False, response
 
-
     def _send(self, message: str):
         """Send a message to the robot (newline-terminated)."""
         assert self.sock is not None, "Socket is not connected."
         logger.debug(f"TX -> Robot: {message}")
         self.sock.sendall((message + "\n").encode("utf-8"))
-
 
     def _receive(self) -> str:
         """Receive a newline-terminated message from the robot."""
@@ -143,7 +137,6 @@ class RobotConnection:
         line = self.sock_file.readline().strip()
         logger.debug(f"RX <- Robot: {line}")
         return line
-
 
     def _close(self):
         """Close socket resources."""

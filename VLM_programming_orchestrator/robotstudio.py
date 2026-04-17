@@ -12,6 +12,7 @@ from .config import Config
 
 logger = logging.getLogger("orchestrator")
 
+
 class RobotStudioTabs(Enum):
     """Enum for RobotStudio tab names. Adjust as needed for your RS version."""
     FILE = "&File"
@@ -59,7 +60,8 @@ class RobotStudioAutomation:
             return False
 
         try:
-            tab = self.main_window.Ribbon.RibbonTabBar.child_window(title=tab_name.value, control_type="TabItem")
+            tab = self.main_window.Ribbon.RibbonTabBar.child_window(
+                title=tab_name.value, control_type="TabItem")
             self.main_window.set_focus()
             tab.click_input()
             logger.info(f"Switched to {tab_name} tab.")
@@ -84,49 +86,61 @@ class RobotStudioAutomation:
             pyperclip.copy(code)
 
             # --- Step 2: Open the editor ---
-            # 
-            
+            #
+
             self.clear_output_pane()
-            
-            # Ctrl+Shift+M to reset program pointers    
+
+            # Ctrl+Shift+M to reset program pointers
             self.main_window.type_keys("^+m")
-            
+
             # If error occurs, it means there were syntax errors in the existing code
             errors = []
             output_texts = self.get_output_pane_text()
             for item in output_texts:
                 if "Error" in item[0]:
-                    errors.append(item[1])  # error message is in the second column
-                    
+                    # error message is in the second column
+                    errors.append(item[1])
+
             if errors:
                 error_message = "\n".join(errors)
-                logger.error("Syntax errors found in existing code, falling back to slow navigation method.")
-                
+                logger.error(
+                    "Syntax errors found in existing code, falling back to slow navigation method.")
+
                 # Slow method: Click through the tree RAPID -> T_ROB1 -> Module
                 cid = self.config.controller_id
                 mod = self.config.module_name
-                
-                rapid_node = self.main_window.child_window(title=f"/{cid}/RAPID", control_type="ListItem")
-                t_rob_node = self.main_window.child_window(title_re=f"/{cid}/RAPID/T_ROB1 \\(.*\\)$", control_type="ListItem")
-                module_node = self.main_window.child_window(title_re=f"/{cid}/RAPID/T_ROB1.*/{mod}$", control_type="ListItem")
+
+                rapid_node = self.main_window.child_window(
+                    title=f"/{cid}/RAPID", control_type="ListItem")
+                t_rob_node = self.main_window.child_window(
+                    title_re=f"/{cid}/RAPID/T_ROB1 \\(.*\\)$", control_type="ListItem")
+                module_node = self.main_window.child_window(
+                    title_re=f"/{cid}/RAPID/T_ROB1.*/{mod}$", control_type="ListItem")
 
                 # Only expand a parent if its child isn't already visible
                 if not t_rob_node.exists(timeout=1):
-                    rapid_node.child_window(control_type="Text").double_click_input()
+                    rapid_node.child_window(
+                        control_type="Text").double_click_input()
                     time.sleep(0.5)
 
                 if not module_node.exists(timeout=1):
-                    t_rob_node.child_window(control_type="Text").double_click_input()
+                    t_rob_node.child_window(
+                        control_type="Text").double_click_input()
                     time.sleep(0.5)
 
-                module_node.child_window(control_type="Text").double_click_input()
-                logger.info("Navigated to program pointer location using tree view.")
+                module_node.child_window(
+                    control_type="Text").double_click_input()
+                logger.info(
+                    "Navigated to program pointer location using tree view.")
             else:
-                logger.info("Program pointers reset successfully. No syntax errors in existing code.")
-                go_to_pp = self.main_window.child_window(title="CmdBarCtl_ProgramShowPP", control_type="Button")
+                logger.info(
+                    "Program pointers reset successfully. No syntax errors in existing code.")
+                go_to_pp = self.main_window.child_window(
+                    title="CmdBarCtl_ProgramShowPP", control_type="Button")
                 go_to_pp.click()
-            
-                logger.info("Navigated to program pointer location in RAPID editor.")
+
+                logger.info(
+                    "Navigated to program pointer location in RAPID editor.")
 
             # --- Step 3: Focus the RAPID editor pane ---
             #
@@ -141,7 +155,8 @@ class RobotStudioAutomation:
             self.clear_output_pane()
 
             # --- Step 5: Click the Apply button ---
-            apply_btn = self.main_window.child_window(title="CmdBarCtl_RapidApplyAll", control_type="Button")
+            apply_btn = self.main_window.child_window(
+                title="CmdBarCtl_RapidApplyAll", control_type="Button")
             apply_btn.set_focus()
             apply_btn.click()
 
@@ -154,7 +169,8 @@ class RobotStudioAutomation:
             errors = []
             for item in output_texts:
                 if "Error" in item[0]:
-                    errors.append(item[1])  # error message is in the second column
+                    # error message is in the second column
+                    errors.append(item[1])
 
             if errors:
                 errors.pop()  # Remove the last item which is a summary like "1 error(s)"
@@ -172,14 +188,17 @@ class RobotStudioAutomation:
     def clear_output_pane(self) -> bool:
         """Clear the Output pane in RobotStudio."""
         if not self.app or not self.main_window:
-            logger.warning("RobotStudio not connected. Cannot clear output pane.")
+            logger.warning(
+                "RobotStudio not connected. Cannot clear output pane.")
             return False
 
         try:
-            output_window = self.main_window.child_window(title="Output", control_type="Pane")
+            output_window = self.main_window.child_window(
+                title="Output", control_type="Pane")
             output_window.set_focus()
             output_window.right_click_input()
-            clear_option = self.main_window.child_window(title="MenuItem_OutputWindowClear", control_type="MenuItem")
+            clear_option = self.main_window.child_window(
+                title="MenuItem_OutputWindowClear", control_type="MenuItem")
             clear_option.click_input()
             logger.info("Output pane cleared.")
             return True
@@ -190,12 +209,15 @@ class RobotStudioAutomation:
     def get_output_pane_text(self) -> list[tuple[str, str]]:
         """Get the text content of the Output pane."""
         if not self.app or not self.main_window:
-            logger.warning("RobotStudio not connected. Cannot read output pane.")
+            logger.warning(
+                "RobotStudio not connected. Cannot read output pane.")
             return []
 
         try:
-            output_window = self.main_window.child_window(title="Output", control_type="Pane")
-            data_items: list[ListItemWrapper] = output_window.child_window(control_type='DataGrid').children(control_type='DataItem')
+            output_window = self.main_window.child_window(
+                title="Output", control_type="Pane")
+            data_items: list[ListItemWrapper] = output_window.child_window(
+                control_type='DataGrid').children(control_type='DataItem')
             output_texts = []
             for item in data_items:
                 texts = item.children()[0].children_texts()
@@ -217,7 +239,8 @@ class RobotStudioAutomation:
         try:
             self.change_tab(RobotStudioTabs.SIMULATION)
             self.clear_output_pane()
-            start_btn = self.main_window.child_window(title="CmdBarCtl_SimulationPlay", control_type="Button")
+            start_btn = self.main_window.child_window(
+                title="CmdBarCtl_SimulationPlay", control_type="Button")
             start_btn.set_focus()
             start_btn.click_input()
 
@@ -237,7 +260,8 @@ class RobotStudioAutomation:
 
         try:
             self.change_tab(RobotStudioTabs.SIMULATION)
-            stop_btn = self.main_window.child_window(title="CmdBarCtl_SimulationStop", control_type="Button")
+            stop_btn = self.main_window.child_window(
+                title="CmdBarCtl_SimulationStop", control_type="Button")
             stop_btn.set_focus()
             stop_btn.click_input()
 
@@ -251,7 +275,8 @@ class RobotStudioAutomation:
         """
         Wait for simulation to finish.
         """
-        logger.info(f"Waiting for simulation to complete (timeout={timeout}s)...")
+        logger.info(
+            f"Waiting for simulation to complete (timeout={timeout}s)...")
 
         output_texts = self.get_output_pane_text()
         start_time = time.time()
@@ -262,13 +287,15 @@ class RobotStudioAutomation:
                 if "Program stopped" in item[1]:
                     elapsed = time.time() - start_time
                     print(f"\r{' ' * dot_count}\r", end="", flush=True)
-                    logger.info(f"Simulation completed successfully in {elapsed:.1f}s.")
+                    logger.info(
+                        f"Simulation completed successfully in {elapsed:.1f}s.")
                     return True, "Simulation completed successfully."
                 if "Error" in item[0]:
                     elapsed = time.time() - start_time
                     print(f"\r{' ' * dot_count}\r", end="", flush=True)
                     # TODO: Extract more specific error message if needed
-                    logger.error(f"Simulation error detected after {elapsed:.1f}s.")
+                    logger.error(
+                        f"Simulation error detected after {elapsed:.1f}s.")
                     return False, "Simulation error detected."
             time.sleep(2)
             print(".", end="", flush=True)
@@ -276,5 +303,6 @@ class RobotStudioAutomation:
 
         elapsed = time.time() - start_time
         print(f"\r{' ' * dot_count}\r", end="", flush=True)
-        logger.warning(f"Simulation did not complete within {elapsed:.1f}s (timeout).")
+        logger.warning(
+            f"Simulation did not complete within {elapsed:.1f}s (timeout).")
         return False, "Simulation did not complete within the timeout period."
