@@ -112,7 +112,7 @@ class DraggableBlock:
         coords = self.canvas.coords(self.rect)
         return (coords[0] + coords[2]) / 2, (coords[1] + coords[3]) / 2
 
-    def move_to(self, x, y, _):
+    def move_to(self, x, y):
         """Move block center to specified position."""
         cx, cy = self.get_center()
         dx = x - cx
