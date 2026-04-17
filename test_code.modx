@@ -1,0 +1,123 @@
+MODULE CubeStacker
+    ! Predefined data objects are assumed to exist in another module,
+    ! but are listed here for clarity.
+    !
+    ! PERS robtarget Home := ... ;
+    ! PERS robtarget Cuboid0 := ... ;
+    ! PERS robtarget Cuboid1 := ... ;
+    ! PERS robtarget Cuboid2 := ... ;
+    ! PERS robtarget Stack := ... ;
+    ! PERS tooldata tool_gripper := ... ;
+    ! CONST string Cfg_Gripper_Signal := "do_Gripper"; ! Example name
+
+    
+    ! Gripper signal alias. The name "do_Gripper" must be configured
+    ! in the I/O system and mapped to physical DO4.
+    VAR signaldo do_Gripper;
+
+    !===================================================================
+    ! PROC PickAndPlace
+    ! Picks a cube from a specified position and places it at the
+    ! target stack position with a given vertical offset.
+    !
+    ! IN: robtarget PickPos - The position to pick the cube from.
+    ! IN: num StackLevel - The cube's level in the stack (0=base).
+    !===================================================================
+    PROC PickAndPlace(robtarget PickPos, num StackLevel)
+        ! Local variables for calculated positions and offsets
+        VAR robtarget ApproachPick;
+        VAR robtarget ApproachStack;
+        VAR robtarget TargetStackPos;
+        VAR num StackOffset;
+        VAR num RetreatOffset;
+
+        ! Define approach/retreat distance (100 mm)
+        RetreatOffset := 100;
+
+        ! 1. --- PICK SEQUENCE ---
+
+        ! Calculate approach position relative to the tool's Z-axis.
+        ! A positive Z offset moves the robot AWAY from the pick surface along the tool axis.
+        ApproachPick := RelTool(PickPos, 0, 0, RetreatOffset);
+
+        ! Move above the cube to be picked
+        MoveL ApproachPick, v500, fine, tool_gripper;
+
+        ! Open gripper
+        SetDO do_Gripper, 0;
+        WaitTime 0.5;
+
+        ! Move down to pick position
+        MoveL PickPos, v100, fine, tool_gripper;
+
+        ! Close gripper
+        SetDO do_Gripper, 1;
+        WaitTime 0.5;
+
+        ! Lift the cube straight up along the tool's Z-axis
+        MoveL ApproachPick, v100, fine, tool_gripper;
+
+
+        ! 2. --- PLACE SEQUENCE ---
+
+        ! Calculate the stack height offset. Cube height is 37 mm.
+        StackOffset := StackLevel * 37;
+
+        ! Calculate the final place position for the current cube using world Z-offset.
+        TargetStackPos := Offs(Stack, 0, 0, StackOffset);
+
+        ! Calculate the approach position above the stack relative to the tool's Z-axis.
+        ApproachStack := RelTool(TargetStackPos, 0, 0, RetreatOffset);
+
+        ! Move to the approach position above the stack
+        MoveL ApproachStack, v500, fine, tool_gripper;
+
+        ! Move down to the place position
+        MoveL TargetStackPos, v100, fine, tool_gripper;
+
+        ! Open gripper to release the cube
+        SetDO do_Gripper, 0;
+        WaitTime 0.5;
+
+        ! Retreat straight up from the stack along the tool's Z-axis
+        MoveL ApproachStack, v100, fine, tool_gripper;
+
+    ENDPROC
+
+    !===================================================================
+    ! PROC main
+    ! Main entry point for the program.
+    !===================================================================
+    PROC main()
+        ! All VAR, PERS, and CONST declarations specific to a procedure
+        ! must come before any other kind of code inside that procedure.
+        VAR robtarget PickTargets{3};
+
+        ! Map the configured signal name to our signal variable
+        AliasIO Cfg_Gripper_Signal, do_Gripper;
+
+        ! Populate an array with the pick positions for easy iteration
+        PickTargets{1} := Cuboid0;
+        PickTargets{2} := Cuboid1;
+        PickTargets{3} := Cuboid2;
+
+        
+        ! Start from a safe home position
+        MoveJ Home, v1000, fine, tool_gripper;
+
+        ! Loop through the three cubes and stack them
+        FOR i FROM 1 TO 3 DO
+            ! Call the pick and place routine for each cube.
+            ! The stack level (i-1) determines the height:
+            ! Cube 1 (i=1) -> StackLevel 0
+            ! Cube 2 (i=2) -> StackLevel 1
+            ! Cube 3 (i=3) -> StackLevel 2
+            PickAndPlace PickTargets{i}, i - 1;
+        ENDFOR
+
+        ! Return to the home position after completing the task
+        MoveJ Home, v1000, fine, tool_gripper;
+
+    ENDPROC
+    
+ENDMODULE
