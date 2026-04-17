@@ -60,6 +60,28 @@ def ask_human_review_with_feedback() -> tuple[bool, str]:
         return False, feedback
 
 
+def ask_skip_validation() -> bool:
+    """Ask the user whether to skip RobotStudio validation. Returns True to skip."""
+    try:
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        result = messagebox.askyesno(
+            "RobotStudio Not Available",
+            "Could not connect to RobotStudio for validation.\n\n"
+            "Do you want to skip validation and proceed anyway?",
+            parent=root,
+        )
+        root.destroy()
+        return result
+    except Exception as e:
+        logger.error(f"Skip-validation dialog failed: {e}")
+        response = input(
+            "RobotStudio not available. Skip validation? (y/n): "
+        ).strip().lower()
+        return response in ("y", "yes")
+
+
 if __name__ == "__main__":
     ok, fb = ask_human_review_with_feedback()
     print(f"Approved: {ok}, Feedback: {fb!r}")

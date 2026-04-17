@@ -22,7 +22,7 @@ import shutil
 import time
 
 from .config import Config, State
-from .human_review import ask_human_review_with_feedback
+from .human_review import ask_human_review_with_feedback, ask_skip_validation
 from .robot_connection import RobotConnection
 from .robotstudio import RobotStudioAutomation
 
@@ -202,9 +202,15 @@ class VLMOrchestrator:
     def _state_validate(self):
         if not self.robotstudio.app:
             if not self.robotstudio.connect_to_robotstudio():
-                logger.warning(
-                    "RobotStudio not available. Skipping validation.")
-                self.state = State.TRANSFER_TO_ROBOT
+                if ask_skip_validation():
+                    logger.warning(
+                        "RobotStudio not available. User chose to skip validation.")
+                    self.state = State.TRANSFER_TO_ROBOT
+                else:
+                    logger.error(
+                        "RobotStudio not available. User chose to abort.")
+                    self.error_message = "RobotStudio not available and user declined to skip validation."
+                    self.state = State.ERROR
                 return
 
         syntax_ok, error_msg = self.robotstudio.paste_code_and_apply(
