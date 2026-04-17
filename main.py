@@ -24,12 +24,11 @@ import sys
 from pathlib import Path
 
 import yaml
-from dotenv import load_dotenv
-
 import urllib3
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+from dotenv import load_dotenv
+from VLM_programming_orchestrator import Config, VLMOrchestrator, run_continuous
 
-from ai_matters import Config, VLMOrchestrator, run_continuous
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 def load_gui_config_from_file(path: Path) -> dict:
@@ -52,9 +51,12 @@ def main():
                         help="Skip RobotStudio validation and simulation.")
     parser.add_argument("--no-human-review", action="store_true",
                         help="Skip the human review step.")
-    parser.add_argument("--robot-ip", type=str, default=None, help="Override robot IP.")
-    parser.add_argument("--robot-port", type=int, default=None, help="Override robot port.")
-    parser.add_argument("--ftp-dir", type=str, default=None, help="Override FTP shared directory.")
+    parser.add_argument("--robot-ip", type=str,
+                        default=None, help="Override robot IP.")
+    parser.add_argument("--robot-port", type=int,
+                        default=None, help="Override robot port.")
+    parser.add_argument("--ftp-dir", type=str, default=None,
+                        help="Override FTP shared directory.")
     args = parser.parse_args()
 
     # Build the single unified config
@@ -71,7 +73,8 @@ def main():
         config.ftp_shared_dir = Path(args.ftp_dir)
 
     if not config.api_key or not config.base_url:
-        print("ERROR: API_KEY and BASE_URL must be set (e.g. via .env).", file=sys.stderr)
+        print("ERROR: API_KEY and BASE_URL must be set (e.g. via .env).",
+              file=sys.stderr)
         sys.exit(1)
 
     # Optionally preload a saved GUI config (skips the GUI for the first cycle)

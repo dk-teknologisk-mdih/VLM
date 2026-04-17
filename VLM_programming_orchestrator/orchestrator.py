@@ -100,7 +100,7 @@ class VLMOrchestrator:
     # ---- State handlers ----------------------------------------------
 
     def _state_run_gui(self):
-        from GUI_VLM_input import get_user_input
+        from VLM.VLM_programming_orchestrator.GUI import get_user_input
         logger.info("Launching GUI for user input...")
         self.gui_config = get_user_input()
         if self.gui_config is None:
@@ -111,7 +111,7 @@ class VLMOrchestrator:
         self.state = State.PLAN_TRAJECTORY
 
     def _state_plan_trajectory(self):
-        from vlm_stack_blocks import plan_stacking_trajectory
+        from VLM.VLM_programming_orchestrator.vlm_stack_blocks import plan_stacking_trajectory
         if not self.config.api_key or not self.config.base_url:
             self.error_message = "API_KEY / BASE_URL not set in environment."
             logger.error(self.error_message)
@@ -129,7 +129,7 @@ class VLMOrchestrator:
         self.state = State.GENERATE_CODE
 
     def _state_generate_code(self):
-        from vlm_stack_blocks import (
+        from VLM.VLM_programming_orchestrator.vlm_stack_blocks import (
             call_claude_for_robot_code,
             call_claude_to_fix_code,
             extract_code_block,
