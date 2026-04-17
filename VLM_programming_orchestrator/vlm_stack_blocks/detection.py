@@ -1,7 +1,6 @@
 """Block detection and depth estimation functions."""
 
 import numpy as np
-import cv2
 
 
 def detect_blocks(detector, image, object_to_stack):

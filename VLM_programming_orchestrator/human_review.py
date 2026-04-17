@@ -1,3 +1,6 @@
+"""
+Human review utilities for the VLM programming orchestrator.
+"""
 # pylint: disable=W1203, W0718
 
 import logging

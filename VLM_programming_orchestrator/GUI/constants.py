@@ -1,13 +1,5 @@
 """Shared constants for the VLM GUI package."""
 
-try:
-    import pyrealsense2 as rs
-    REALSENSE_AVAILABLE = True
-except ImportError:
-    REALSENSE_AVAILABLE = False
-    print("Warning: pyrealsense2 not available. Camera preview disabled.")
-
-
 PALETTE = {
     "bg_dark": "#0d0221",
     "bg_mid": "#150734",

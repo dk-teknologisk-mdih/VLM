@@ -1,0 +1,11 @@
+# increase the max line length to 120 characters
+[FORMAT]
+max-line-length=120
+
+[MESSAGES CONTROL]
+disable=
+    W0718,  # Catching too general exception Exception
+    W1201,  # Logging string interpolation
+
+# generated member accessors for dataclasses
+generated-members="cv2.*", "pyrealsense2.*", "tkinter.*"

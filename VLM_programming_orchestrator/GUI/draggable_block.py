@@ -1,6 +1,6 @@
 """Draggable block canvas widget with visual effects."""
 
-import tkinter as tk
+from typing import Callable
 
 from .constants import BLOCK_COLORS_MAP, DISPLAY_LABELS
 
@@ -60,16 +60,16 @@ class DraggableBlock:
             canvas.tag_bind(item, "<Leave>", self._on_leave)
 
         self.drag_data = {"x": 0, "y": 0}
-        self.on_drop_callback = None
-        self.on_drag_callback = None
+        self.on_drop_callback: Callable = None
+        self.on_drag_callback: Callable = None
 
-    def _on_enter(self, event):
+    def _on_enter(self, _):
         """Hover effect."""
         if not self.is_dragging:
             self.canvas.itemconfig(self.rect, fill=self.colors["hover"])
             self.canvas.config(cursor="hand2")
 
-    def _on_leave(self, event):
+    def _on_leave(self, _):
         """Remove hover effect."""
         if not self.is_dragging:
             self.canvas.itemconfig(self.rect, fill=self.colors["fill"])
@@ -112,7 +112,7 @@ class DraggableBlock:
         coords = self.canvas.coords(self.rect)
         return (coords[0] + coords[2]) / 2, (coords[1] + coords[3]) / 2
 
-    def move_to(self, x, y, animate=False):
+    def move_to(self, x, y, _):
         """Move block center to specified position."""
         cx, cy = self.get_center()
         dx = x - cx

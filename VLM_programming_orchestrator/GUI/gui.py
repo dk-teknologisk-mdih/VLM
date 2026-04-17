@@ -1,20 +1,19 @@
 """Wizard-style GUI for configuring VLM block manipulation tasks."""
 
-import tkinter as tk
-from tkinter import ttk
-from PIL import Image, ImageTk
-import numpy as np
-import cv2
-import yaml
+import math
 import os
 import random
-import math
+import tkinter as tk
+from tkinter import ttk
 
-from .constants import PALETTE, REALSENSE_AVAILABLE, ALL_BLOCK_COLORS, AREA_COLORS
+import cv2
+import numpy as np
+import pyrealsense2 as rs
+import yaml
+from PIL import Image, ImageTk
+
+from .constants import ALL_BLOCK_COLORS, AREA_COLORS, PALETTE
 from .stack_builder import StackBuilder
-
-if REALSENSE_AVAILABLE:
-    import pyrealsense2 as rs
 
 
 class VLMInputGUI:
@@ -60,7 +59,7 @@ class VLMInputGUI:
         self.sort_block_buttons = {}  # References to block selection buttons
 
         # Interactive widgets
-        self.stack_builder = None
+        self.stack_builder: StackBuilder = None
 
         # Result storage
         self.result = None
@@ -97,8 +96,6 @@ class VLMInputGUI:
 
     def _init_camera(self):
         """Initialize RealSense camera."""
-        if not REALSENSE_AVAILABLE:
-            return
 
         try:
             self.pipeline = rs.pipeline()
@@ -196,7 +193,11 @@ class VLMInputGUI:
             metered = sum(measurements) / len(measurements)
             error = metered - s["target"]
             print(
-                f"Auto-exposure [{s['iteration']}]: masked_mean={metered:.1f}, target={s['target']}, exposure={self.camera_exposure}, error={error:.1f}")
+                f"Auto-exposure [{s['iteration']}]: masked_mean={metered:.1f}, "
+                f"target={s['target']}, "
+                f"exposure={self.camera_exposure}, "
+                f"error={error:.1f}"
+            )
 
             if abs(error) <= s["tolerance"] or s["iteration"] >= s["max_iter"]:
                 print(
@@ -257,7 +258,12 @@ class VLMInputGUI:
             self.camera_canvas.delete("camera_info")
             self.camera_canvas.create_text(
                 10, 10, anchor=tk.NW,
-                text=f"Exp: {self.camera_exposure}  |  Con: {self.camera_contrast}  |  BrTgt: {self.brightness_target}   [E/D] exp  [R/F] con  [T/G] target",
+                text=(
+                    f"Exp: {self.camera_exposure}  |  "
+                    f"Con: {self.camera_contrast}  |  "
+                    f"BrTgt: {self.brightness_target}   "
+                    f"[E/D] exp  [R/F] con  [T/G] target"
+                ),
                 fill="#00f5d4", font=("Consolas", 10),
                 tags="camera_info"
             )
@@ -936,7 +942,7 @@ class VLMInputGUI:
             clicked_paper = None
             for idx, rect in enumerate(self.detected_papers):
                 box = cv2.boxPoints(rect)
-                box = np.int32(box)
+                # box = np.int32(box)
                 # Point-in-polygon test
                 if cv2.pointPolygonTest(box, (float(x), float(y)), False) >= 0:
                     clicked_paper = idx
@@ -1222,7 +1228,7 @@ class VLMInputGUI:
                             color_bgr = (0, 255, 255)  # Detected: cyan
                             thickness = 3
                         box = cv2.boxPoints(rect)
-                        box = np.int32(box)
+                        # box = np.int32(box)
                         cv2.drawContours(
                             display_image, [box], 0, color_bgr, thickness)
                         # Label at center
@@ -1347,8 +1353,11 @@ class VLMInputGUI:
                 "task": "sort blocks",
                 # {"red": (x, y), ...}
                 "block_positions": self.sort_block_positions,
-                "objects_to_manipulate": [f"{color} block" for color in self.sort_block_positions.keys()],
-                "target_positions": {color: f"normalized coordinates {pos}" for color, pos in self.sort_block_positions.items()},
+                "objects_to_manipulate": [f"{color} block" for color, _ in self.sort_block_positions.items()],
+                "target_positions": {
+                    color: f"normalized coordinates {pos}"
+                    for color, pos in self.sort_block_positions.items()
+                },
                 "brightness_target": self.brightness_target,
                 "exposure": self.camera_exposure,
                 "contrast": self.camera_contrast,

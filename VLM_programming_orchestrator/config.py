@@ -1,10 +1,14 @@
+"""
+Configuration and constants for the VLM programming orchestrator.
+"""
+
 # pylint: disable=W1203, W0718
 
-import os
 import logging
-from pathlib import Path
-from enum import Enum, auto
+import os
 from dataclasses import dataclass, field
+from enum import Enum, auto
+from pathlib import Path
 from typing import Optional
 
 
@@ -63,6 +67,7 @@ class Config:
 
 
 class State(Enum):
+    """States for the orchestrator's state machine."""
     RUN_GUI = auto()
     PLAN_TRAJECTORY = auto()
     GENERATE_CODE = auto()

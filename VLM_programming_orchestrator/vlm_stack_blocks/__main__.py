@@ -1,10 +1,10 @@
 """Allow running as: python -m vlm_stack_blocks"""
 
 import os
+
 from dotenv import load_dotenv
 
 from .pipeline import plan_stacking_trajectory
-from .code_generation import call_claude_for_robot_code
 
 load_dotenv()
 

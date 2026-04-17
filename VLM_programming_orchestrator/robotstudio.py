@@ -1,12 +1,15 @@
+"""
+RobotStudio automation module using pywinauto.
+"""
 # pylint: disable=W1203, W0718, C0301
 
-import time
 import logging
+import time
 from enum import Enum
+
 import pyperclip
 from pywinauto.application import Application
 from pywinauto.controls.uia_controls import ListItemWrapper
-
 
 from .config import Config
 

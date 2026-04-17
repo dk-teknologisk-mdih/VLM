@@ -1,7 +1,10 @@
+"""
+Robot connection management for the VLM programming orchestrator.
+"""
 # pylint: disable=W1203, W0718
 
-import socket
 import logging
+import socket
 from typing import Optional
 
 from .config import Config

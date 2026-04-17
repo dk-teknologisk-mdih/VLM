@@ -1,28 +1,36 @@
 """Detector class for object detection and trajectory planning using Gemini Robotics-ER."""
 
-import yaml
-import json
 import base64
-import re
-import requests
-from io import BytesIO
-from PIL import Image, ImageDraw, ImageFont
-import numpy as np
-import cv2
+import json
 import os
+import re
 import time
-import matplotlib.pyplot as plt
-import pyrealsense2 as rs
+from io import BytesIO
 
+import cv2
+import matplotlib.pyplot as plt
+import numpy as np
+import pyrealsense2 as rs
+import requests
 # Disable SSL warnings for self-signed certificates
 import urllib3
+import yaml
+from PIL import Image, ImageDraw, ImageFont
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class GeminiRoboticsDetector:
     """Detector class for object detection and trajectory planning using Gemini Robotics-ER."""
 
-    def __init__(self, api_key, base_url="https://yoda.localdom.net:8443/api-proxy/api", exposure=450, contrast=0, brightness_target=20):
+    def __init__(
+        self,
+        api_key,
+        base_url="https://yoda.localdom.net:8443/api-proxy/api",
+        exposure=450,
+        contrast=0,
+        brightness_target=20
+    ):
         """
         Initialize the detector with API key and proxy URL.
 
@@ -81,7 +89,7 @@ class GeminiRoboticsDetector:
     def aligned_frames_and_images(self):
         """Get aligned color and depth frames."""
         frames = self.pipeline.wait_for_frames(5000)
-        aligned_frames = self.align.process(frames)
+        aligned_frames = self.align.process(frames) # type: ignore
         depth_frame = aligned_frames.get_depth_frame()
         color_frame = aligned_frames.get_color_frame()
 
@@ -150,7 +158,11 @@ class GeminiRoboticsDetector:
             metered = sum(measurements) / len(measurements)
             error = metered - brightness_target
             print(
-                f"Auto-exposure [{iteration}]: masked_mean={metered:.1f}, target={brightness_target}, exposure={self.exposure}, error={error:.1f}")
+                f"Auto-exposure [{iteration}]: masked_mean={metered:.1f}, "
+                f"target={brightness_target}, "
+                f"exposure={self.exposure}, "
+                f"error={error:.1f}"
+            )
 
             if abs(error) <= tolerance:
                 print(
@@ -176,7 +188,7 @@ class GeminiRoboticsDetector:
 
         self.auto_exposure(brightness_target=self.brightness_target)
 
-        color_frame, depth_frame, color_intrinsic, depth_intrinsic = self.aligned_frames_and_images()
+        color_frame, depth_frame, _color_intrinsic, depth_intrinsic = self.aligned_frames_and_images()
         color_image = np.asanyarray(color_frame.get_data())
         pil_image = Image.fromarray(color_image)
 
@@ -270,7 +282,7 @@ class GeminiRoboticsDetector:
             for i, line in enumerate(lines):
                 if line == "```yaml" or line == "```json":
                     text = "\n".join(lines[i + 1:])
-                    text = text.split("```")[0]
+                    text = text.split("```", maxsplit=1)[0]
                     break
 
         # Fix common YAML issues: unquoted strings with colons
@@ -313,7 +325,7 @@ class GeminiRoboticsDetector:
             list or dict: Parsed response data
         """
         # Load and encode image
-        image_base64, mime_type, pil_img = self._load_image_as_base64(img)
+        image_base64, mime_type, _pil_img = self._load_image_as_base64(img)
 
         # Configure thinking budget
         thinking_budget = -1 if use_thinking else 0
@@ -378,7 +390,7 @@ class GeminiRoboticsDetector:
             data = yaml.safe_load(yaml_output)
             if save_path:
                 save_path = self.ensure_output_dir(save_path)
-                with open(save_path, "w") as f:
+                with open(save_path, "w", encoding="utf-8") as f:
                     yaml.dump(data, f, default_flow_style=False,
                               sort_keys=False)
                     print(f"Raw response saved to: {save_path}")
@@ -398,7 +410,7 @@ class GeminiRoboticsDetector:
         bbox = initial_bbox
         shift_amount = 5
 
-        for attempt in range(max_attempts):
+        for _attempt in range(max_attempts):
             overlaps = False
             for occupied in occupied_rects:
                 if self._check_bbox_overlap(bbox, occupied):
@@ -425,7 +437,7 @@ class GeminiRoboticsDetector:
 
         try:
             font = ImageFont.truetype("arial.ttf", size=20)
-        except:
+        except Exception:
             font = ImageFont.load_default()
 
         # Map label keywords to display colors
@@ -457,7 +469,7 @@ class GeminiRoboticsDetector:
 
         occupied_rects = []
 
-        for i, point_info in enumerate(points_data):
+        for _, point_info in enumerate(points_data):
             if "point" in point_info and "label" in point_info:
                 y_norm, x_norm, _ = point_info["point"]
                 label = point_info["label"]

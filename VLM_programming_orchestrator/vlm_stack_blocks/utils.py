@@ -6,7 +6,7 @@ import yaml
 def save_detections(detector, detections, filename):
     """Save detected objects to YAML file."""
     save_path = detector.ensure_output_dir(filename)
-    with open(save_path, "w") as f:
+    with open(save_path, "w", encoding="utf-8") as f:
         yaml.dump(detections, f, default_flow_style=False, sort_keys=False)
         print(f"\nDetected objects saved to: {save_path}")
 
@@ -14,7 +14,7 @@ def save_detections(detector, detections, filename):
 def save_stacking_plan(detector, stacking_plan_3d, filename):
     """Save 3D stacking plan to YAML file."""
     save_path = detector.ensure_output_dir(filename)
-    with open(save_path, "w") as f:
+    with open(save_path, "w", encoding="utf-8") as f:
         yaml.dump(stacking_plan_3d, f,
                   default_flow_style=False, sort_keys=False)
         print(f"Stacking plan with 3D coordinates saved to: {save_path}")
@@ -22,7 +22,7 @@ def save_stacking_plan(detector, stacking_plan_3d, filename):
 
 def print_summary(blocks, target_location, stacking_plan_3d):
     """Print summary of the stacking plan."""
-    print(f"\n=== Summary ===")
+    print("\n=== Summary ===")
     print(f"Found {len(blocks)} blocks to stack")
     if target_location:
         print(f"Target location: {target_location['label']}")

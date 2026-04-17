@@ -5,14 +5,15 @@ LLM's RAG system — we reference them by name so the model retrieves them itsel
 We do NOT inject their contents into the prompt.
 """
 
-import re
-import yaml
 import json
 import os
-import requests
+import re
 
+import requests
 # Disable SSL warnings for self-signed certificates
 import urllib3
+import yaml
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 

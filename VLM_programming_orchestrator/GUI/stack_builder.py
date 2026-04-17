@@ -2,7 +2,7 @@
 
 import tkinter as tk
 
-from .constants import PALETTE, ALL_BLOCK_COLORS
+from .constants import ALL_BLOCK_COLORS, PALETTE
 from .draggable_block import DraggableBlock
 
 
@@ -202,4 +202,5 @@ class StackBuilder:
         return order
 
     def pack(self, **kwargs):
+        """Pack the stack builder frame into the parent widget."""
         self.frame.pack(**kwargs)

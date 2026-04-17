@@ -9,8 +9,8 @@ Step-by-step wizard GUI to configure block manipulation tasks.
 Includes live camera preview from RealSense camera.
 """
 
-from .gui import get_user_input, VLMInputGUI
 from .draggable_block import DraggableBlock
+from .gui import VLMInputGUI, get_user_input
 from .stack_builder import StackBuilder
 
 __all__ = ["get_user_input", "VLMInputGUI", "DraggableBlock", "StackBuilder"]

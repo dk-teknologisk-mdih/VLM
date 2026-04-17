@@ -1,7 +1,5 @@
 """Trajectory planning: prompt building, coordinate conversion, and visualization helpers."""
 
-import pyrealsense2 as rs
-
 
 def build_trajectory_prompt(blocks, target_location, object_to_stack, where_to_stack, stack_order=None):
     """
@@ -18,12 +16,21 @@ def build_trajectory_prompt(blocks, target_location, object_to_stack, where_to_s
         str: Formatted prompt for trajectory planning
     """
     blocks_info = chr(10).join([
-        f"Block {i+1} ({block['label']}): y={block['point'][0]}, x={block['point'][1]} (normalized 0-1000), depth={block['point'][2]} mm"
+        (
+            f"Block {i+1} ({block['label']}): "
+            f"y={block['point'][0]}, "
+            f"x={block['point'][1]} (normalized 0-1000), "
+            f"depth={block['point'][2]} mm"
+        )
         for i, block in enumerate(blocks)
     ])
 
     if target_location:
-        target_info = f"Target location ({target_location['label']}): y={target_location['point'][0]}, x={target_location['point'][1]} (normalized 0-1000), depth={target_location['point'][2]} mm"
+        target_info = (
+            f"Target location ({target_location['label']}): y={target_location['point'][0]}, "
+            f"x={target_location['point'][1]} (normalized 0-1000), "
+            f"depth={target_location['point'][2]} mm"
+        )
     else:
         target_info = f"Target: {where_to_stack} (location not precisely detected)"
 
@@ -40,7 +47,8 @@ def build_trajectory_prompt(blocks, target_location, object_to_stack, where_to_s
             [f"{color} block" for color in stack_order])
         stack_order_info = f"\n\nIMPORTANT: Stack the blocks in this specific order (bottom to top): {stack_order_str}"
 
-    return f"""You are controlling a robot arm to stack {len(blocks)} blocks ({object_desc}) on top of each other.{stack_order_info}
+    return f"""
+You are controlling a robot arm to stack {len(blocks)} blocks ({object_desc}) on top of each other.{stack_order_info}
 
 The blocks to be stacked are located at these positions:
 {blocks_info}
@@ -117,9 +125,7 @@ def convert_plan_to_3d(detector, stacking_plan_pixel, image_size, depth_frame, d
                     abs_x = int(x_norm / 1000.0 * width)
                     abs_y = int(y_norm / 1000.0 * height)
 
-                    # print(f"point before {waypoint['label']}: normalized ({y_norm}, {x_norm}), pixel ({abs_x}, {abs_y}), z {waypoint['point'][2]} mm")
-
-                    point_3d, depth = detector.img_point_to_cam_coord_realsense(
+                    point_3d, _ = detector.img_point_to_cam_coord_realsense(
                         [abs_x, abs_y],
                         depth_frame,
                         depth_intrinsic

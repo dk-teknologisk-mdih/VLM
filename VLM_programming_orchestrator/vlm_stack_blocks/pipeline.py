@@ -2,13 +2,21 @@
 
 import numpy as np
 
+from .detection import (add_depth_to_detections, detect_blocks,
+                        detect_target_location)
 from .detector import GeminiRoboticsDetector
-from .detection import detect_blocks, detect_target_location, add_depth_to_detections
-from .trajectory import build_trajectory_prompt, convert_plan_to_3d, extract_waypoints_for_visualization
-from .utils import save_detections, save_stacking_plan, print_summary
+from .trajectory import (build_trajectory_prompt, convert_plan_to_3d,
+                         extract_waypoints_for_visualization)
+from .utils import print_summary, save_detections, save_stacking_plan
 
 
-def plan_stacking_trajectory(api_key, base_url, object_to_stack="red block", where_to_stack="the middle of the white paper", config=None):
+def plan_stacking_trajectory(
+    api_key,
+    base_url,
+    object_to_stack="red block",
+    where_to_stack="the middle of the white paper",
+    config=None
+):
     """
     Plan a trajectory for stacking objects on top of each other.
 

@@ -17,15 +17,14 @@ Implements the full 12-step workflow as a state machine:
  12. run_continuous loops back to step 1
 """
 
-import time
-import shutil
 import logging
-from pathlib import Path
+import shutil
+import time
 
 from .config import Config, State
+from .human_review import ask_human_review_with_feedback
 from .robot_connection import RobotConnection
 from .robotstudio import RobotStudioAutomation
-from .human_review import ask_human_review_with_feedback
 
 # Late-imported (inside methods) to avoid pulling the GUI / VLM deps unless used:
 #   from GUI_VLM_input import get_user_input
@@ -65,6 +64,9 @@ class VLMOrchestrator:
 
     # ------------------------------------------------------------------
     def run(self):
+        """ 
+        Run one cycle of the pipeline, from GUI to robot execution. 
+        """
         logger.info("=" * 60)
         logger.info("VLM Orchestrator starting")
         logger.info("=" * 60)
@@ -102,7 +104,7 @@ class VLMOrchestrator:
     # ---- State handlers ----------------------------------------------
 
     def _state_run_gui(self):
-        from VLM.VLM_programming_orchestrator.GUI import get_user_input
+        from .GUI import get_user_input  # pylint: disable=C0415
         logger.info("Launching GUI for user input...")
         self.gui_config = get_user_input()
         if self.gui_config is None:
@@ -113,7 +115,8 @@ class VLMOrchestrator:
         self.state = State.PLAN_TRAJECTORY
 
     def _state_plan_trajectory(self):
-        from VLM.VLM_programming_orchestrator.vlm_stack_blocks import plan_stacking_trajectory
+        from .vlm_stack_blocks import \
+            plan_stacking_trajectory  # pylint: disable=C0415
         if not self.config.api_key or not self.config.base_url:
             self.error_message = "API_KEY / BASE_URL not set in environment."
             logger.error(self.error_message)
@@ -131,11 +134,10 @@ class VLMOrchestrator:
         self.state = State.GENERATE_CODE
 
     def _state_generate_code(self):
-        from VLM.VLM_programming_orchestrator.vlm_stack_blocks import (
-            call_claude_for_robot_code,
-            call_claude_to_fix_code,
-            extract_code_block,
-        )
+        # Late import to avoid pulling LLM deps until this step
+        from .vlm_stack_blocks import (  # pylint: disable=C0415
+            call_claude_for_robot_code, call_claude_to_fix_code,
+            extract_code_block)
         self.attempt += 1
         if self.attempt > self.config.max_retry_attempts:
             logger.error("Max retry attempts reached.")
@@ -299,6 +301,7 @@ class VLMOrchestrator:
 
     # ------------------------------------------------------------------
     def shutdown(self):
+        """Clean up resources."""
         logger.info("Shutting down orchestrator...")
         self.robot.disconnect()
 

@@ -23,15 +23,18 @@ import argparse
 import sys
 from pathlib import Path
 
-import yaml
 import urllib3
+import yaml
 from dotenv import load_dotenv
-from VLM_programming_orchestrator import Config, VLMOrchestrator, run_continuous
+
+from VLM_programming_orchestrator import (Config, VLMOrchestrator,
+                                          run_continuous)
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 def load_gui_config_from_file(path: Path) -> dict:
+    """Load GUI config from a YAML file. This allows skipping the GUI for the first cycle."""
     with open(path, "r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
     if "target_position" in cfg and isinstance(cfg["target_position"], list):
@@ -40,6 +43,7 @@ def load_gui_config_from_file(path: Path) -> dict:
 
 
 def main():
+    """Parse command-line arguments, build config, and run the orchestrator."""
     load_dotenv()
 
     parser = argparse.ArgumentParser(description="VLM -> Robot pipeline")
