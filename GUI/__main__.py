@@ -1,6 +1,6 @@
 """Allow running the GUI as: python -m GUI_VLM_input"""
 
-from .vlm_input_gui import get_user_input
+from .gui import get_user_input
 
 if __name__ == "__main__":
     result = get_user_input()
