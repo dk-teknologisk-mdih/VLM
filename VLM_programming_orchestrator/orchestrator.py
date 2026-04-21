@@ -186,7 +186,8 @@ class VLMOrchestrator:
     def _state_save_module(self):
         local_path = self.config.local_output_dir / self.config.module_filename
         try:
-            local_path.write_text(self.current_code, encoding="utf-8")
+            # Replace main() with run_task() in the saved code, since the robot expects a run_task entry point
+            local_path.write_text(self.current_code.replace("main()", "run_task()"), encoding="utf-8")
             logger.info(f"Module saved to {local_path}")
         except IOError as e:
             self.error_message = f"Failed to save module: {e}"
