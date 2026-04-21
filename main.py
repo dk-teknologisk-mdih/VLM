@@ -29,6 +29,7 @@ from dotenv import load_dotenv
 
 from vlm_programming_orchestrator import (Config, VLMOrchestrator,
                                           run_continuous)
+from vlm_programming_orchestrator.gui.gui import run_app
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -93,13 +94,9 @@ def main():
         print(f"Loaded GUI config from {full_path}")
 
     if args.once:
-        orch = VLMOrchestrator(config, gui_config=initial_gui)
-        try:
-            orch.run()
-        finally:
-            orch.shutdown()
+        run_app(config, initial_gui=initial_gui, run_once=True)
     else:
-        run_continuous(config, gui_config=initial_gui)
+        run_app(config, initial_gui=initial_gui, run_once=False)
 
 
 if __name__ == "__main__":

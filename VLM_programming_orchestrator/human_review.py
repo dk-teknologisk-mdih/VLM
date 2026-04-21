@@ -133,12 +133,25 @@ def _surface(window):
         pass
 
 
-def _make_dialog(title, width, height):
-    """Create a hidden root + styled Toplevel centered on the target monitor."""
-    root = tk.Tk()
-    root.withdraw()
+def _make_dialog(title, width, height, parent=None):
+    """Create a styled Toplevel centered on the target monitor.
+
+    If `parent` is provided (an existing Tk root / Toplevel), the dialog is
+    parented to it and no temporary root is created. Otherwise a hidden
+    temporary root is created and returned alongside the dialog.
+
+    Returns (owner, dialog). `owner` is the temporary root when one was
+    created, else None.
+    """
+    if parent is None:
+        root = tk.Tk()
+        root.withdraw()
+        owner = root
+        dialog = tk.Toplevel(root)
+    else:
+        owner = None
+        dialog = tk.Toplevel(parent)
     monitor = get_target_monitor()
-    dialog = tk.Toplevel(root)
     dialog.title(title)
     dialog.configure(bg=_BG)
     center_on_monitor(dialog, width, height, monitor)
@@ -148,7 +161,7 @@ def _make_dialog(title, width, height):
     # can prevent the Toplevel from being shown at all.
     dialog.deiconify()
     dialog.update_idletasks()
-    return root, dialog
+    return owner, dialog
 
 
 def _styled_button(parent, text, command, bg=_ACCENT, fg=_BG):
@@ -165,10 +178,10 @@ def _styled_button(parent, text, command, bg=_ACCENT, fg=_BG):
 # Public API
 # ---------------------------------------------------------------------------
 
-def _yes_no_dialog(title, message, yes_text="Yes", no_text="No") -> bool:
+def _yes_no_dialog(title, message, yes_text="Yes", no_text="No", parent=None) -> bool:
     """Custom Yes/No dialog rendered on the configured monitor."""
     try:
-        root, dialog = _make_dialog(title, 560, 280)
+        owner, dialog = _make_dialog(title, 560, 280, parent=parent)
     except Exception as exc:
         logger.error(f"Dialog init failed: {exc}")
         response = input(f"{title}\n{message}\n(y/n): ").strip().lower()
@@ -211,15 +224,18 @@ def _yes_no_dialog(title, message, yes_text="Yes", no_text="No") -> bool:
     except Exception:
         pass
 
-    root.wait_window(dialog)
-    try:
-        root.destroy()
-    except Exception:
-        pass
+    if owner is not None:
+        owner.wait_window(dialog)
+        try:
+            owner.destroy()
+        except Exception:
+            pass
+    else:
+        parent.wait_window(dialog)
     return state["result"]
 
 
-def ask_human_review() -> bool:
+def ask_human_review(parent=None) -> bool:
     """Pop-up asking if the simulation looked correct. Returns True if approved."""
     return _yes_no_dialog(
         "Human Review",
@@ -227,23 +243,26 @@ def ask_human_review() -> bool:
         "Did the robot behavior look correct?\n\n"
         "Click 'Yes' to send the code to the physical robot.\n"
         "Click 'No' to regenerate the code.",
+        parent=parent,
     )
 
 
-def ask_skip_validation() -> bool:
+def ask_skip_validation(parent=None) -> bool:
     """Ask the user whether to skip RobotStudio validation. Returns True to skip."""
     return _yes_no_dialog(
         "RobotStudio Not Available",
         "Could not connect to RobotStudio for validation.\n\n"
         "Do you want to skip validation and proceed anyway?",
+        parent=parent,
     )
 
 
-def _feedback_dialog() -> str:
+def _feedback_dialog(parent=None) -> str:
     """Custom feedback dialog with on-screen keyboard support."""
     try:
         width, height = 760, 380
-        root, dialog = _make_dialog("What went wrong?", width, height)
+        owner, dialog = _make_dialog(
+            "What went wrong?", width, height, parent=parent)
         # Shift the dialog upward so the touch keyboard (which docks to the
         # bottom of the screen) doesn't cover the OK/Cancel buttons.
         monitor = get_target_monitor()
@@ -310,25 +329,28 @@ def _feedback_dialog() -> str:
     # Open touch keyboard once the dialog is on-screen
     dialog.after(150, _open_touch_keyboard)
 
-    root.wait_window(dialog)
-    try:
-        root.destroy()
-    except Exception:
-        pass
+    if owner is not None:
+        owner.wait_window(dialog)
+        try:
+            owner.destroy()
+        except Exception:
+            pass
+    else:
+        parent.wait_window(dialog)
     return state["text"]
 
 
-def ask_human_review_with_feedback() -> tuple[bool, str]:
+def ask_human_review_with_feedback(parent=None) -> tuple[bool, str]:
     """
     Pop-up asking if the simulation looked correct.
     On rejection, prompts for free-text feedback to pass to the LLM.
     Returns (approved, feedback_text).
     """
-    approved = ask_human_review()
+    approved = ask_human_review(parent=parent)
     if approved:
         return True, ""
     try:
-        feedback = _feedback_dialog()
+        feedback = _feedback_dialog(parent=parent)
     except Exception as exc:
         logger.error(f"Feedback dialog failed: {exc}")
         feedback = input("Describe what was wrong: ").strip()

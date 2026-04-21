@@ -3,6 +3,7 @@
 import math
 import os
 import random
+import threading
 import tkinter as tk
 from tkinter import ttk
 
@@ -73,6 +74,16 @@ class VLMInputGUI:
 
         # Result storage
         self.result = None
+
+        # Pipeline integration (set by run_app)
+        self.on_confirm = None  # callback(result_dict) -> None
+        self.pipeline_events = None
+        self.pipeline_thread = None
+        self.status_frame = None
+        self.status_state_label = None
+        self.status_log = None
+        self.stop_btn = None
+        self._cycle_should_exit_after = False  # for --once
 
         # Camera
         self.pipeline = None
@@ -409,6 +420,7 @@ class VLMInputGUI:
         self._create_step2_stack_frame()
         self._create_step2_sort_frame()
         self._create_step3_stack_frame()
+        self._create_status_frame()
 
         # Navigation buttons with vibrant styling
         nav_frame = tk.Frame(self.controls_frame, bg=self.PALETTE["bg_dark"])
@@ -1072,6 +1084,267 @@ class VLMInputGUI:
                 x, y, text=label, fill="white", font=("Arial", 10, "bold"), tags=tag
             )
 
+    def _create_status_frame(self):
+        """Create the live pipeline status panel (shown after Finish)."""
+        frame = tk.Frame(self.step_container, bg=self.PALETTE["bg_dark"])
+
+        header = tk.Label(
+            frame, text="🚀 PIPELINE RUNNING",
+            font=("Arial", 13, "bold"),
+            fg=self.PALETTE["accent_yellow"], bg=self.PALETTE["bg_dark"])
+        header.pack(pady=(5, 8))
+
+        state_box = tk.Frame(frame, bg=self.PALETTE["bg_mid"], padx=12, pady=10)
+        state_box.pack(fill=tk.X, padx=4, pady=(0, 8))
+        tk.Label(state_box, text="Current state",
+                 font=("Arial", 9), fg=self.PALETTE["text_dim"],
+                 bg=self.PALETTE["bg_mid"]).pack(anchor=tk.W)
+        self.status_state_label = tk.Label(
+            state_box, text="(starting…)",
+            font=("Consolas", 13, "bold"),
+            fg=self.PALETTE["accent_cyan"], bg=self.PALETTE["bg_mid"])
+        self.status_state_label.pack(anchor=tk.W, pady=(2, 0))
+
+        log_label = tk.Label(
+            frame, text="📜 Log",
+            font=("Arial", 10, "bold"),
+            fg=self.PALETTE["accent_pink"], bg=self.PALETTE["bg_dark"])
+        log_label.pack(anchor=tk.W, padx=4)
+
+        log_container = tk.Frame(frame, bg=self.PALETTE["bg_dark"])
+        log_container.pack(fill=tk.BOTH, expand=True, padx=4, pady=(2, 8))
+
+        scrollbar = tk.Scrollbar(log_container, orient=tk.VERTICAL)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.status_log = tk.Text(
+            log_container, height=14, wrap=tk.WORD,
+            bg=self.PALETTE["bg_mid"], fg=self.PALETTE["text_bright"],
+            insertbackground=self.PALETTE["accent_cyan"],
+            relief=tk.FLAT, font=("Consolas", 9),
+            yscrollcommand=scrollbar.set, state=tk.DISABLED)
+        self.status_log.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.config(command=self.status_log.yview)
+
+        self.stop_btn = tk.Button(
+            frame, text="✕ STOP", command=self._on_stop_pipeline,
+            font=("Arial", 10, "bold"), fg="white",
+            bg="#c0392b", activebackground="#e74c3c",
+            relief=tk.FLAT, padx=15, pady=8, cursor="hand2")
+        self.stop_btn.pack(pady=(0, 4))
+
+        self.step_frames["status"] = frame
+
+    def _show_status(self):
+        """Hide wizard step frames and nav buttons; show the status panel."""
+        for frame in self.step_frames.values():
+            frame.pack_forget()
+        self.step_frames["status"].pack(fill=tk.BOTH, expand=True)
+
+        # Hide wizard nav buttons; the Stop button lives inside the status frame.
+        self.back_btn.pack_forget()
+        self.next_btn.pack_forget()
+        self.confirm_btn.pack_forget()
+
+        # Update step indicator + progress bar to a "running" presentation.
+        self.step_label.config(text="⚡ Pipeline running")
+        self._draw_progress_bar(100)
+
+    def _append_status_log(self, message: str, level: str = "INFO") -> None:
+        if self.status_log is None:
+            return
+        color_tag = {
+            "ERROR": "log_error",
+            "WARNING": "log_warning",
+            "INFO": "log_info",
+            "DEBUG": "log_debug",
+        }.get(level, "log_info")
+        # Configure tags lazily
+        try:
+            self.status_log.tag_config("log_error", foreground="#ff6b6b")
+            self.status_log.tag_config(
+                "log_warning", foreground=self.PALETTE["accent_yellow"])
+            self.status_log.tag_config(
+                "log_info", foreground=self.PALETTE["text_bright"])
+            self.status_log.tag_config(
+                "log_debug", foreground=self.PALETTE["text_dim"])
+        except Exception:
+            pass
+
+        self.status_log.config(state=tk.NORMAL)
+        self.status_log.insert(tk.END, message + "\n", color_tag)
+        # Cap to ~500 lines
+        line_count = int(self.status_log.index("end-1c").split(".")[0])
+        if line_count > 500:
+            self.status_log.delete("1.0", f"{line_count - 500}.0")
+        self.status_log.see(tk.END)
+        self.status_log.config(state=tk.DISABLED)
+
+    # ---- Pipeline integration ---------------------------------------
+
+    def start_pipeline(self, runner):
+        """Switch to status view and start the pipeline worker thread.
+
+        `runner` is a callable taking a `PipelineEvents` instance and the
+        confirmed GUI config dict. It runs on a background thread.
+        """
+        from ..pipeline_events import PipelineEvents  # pylint: disable=C0415
+
+        self.pipeline_events = PipelineEvents()
+        self._show_status()
+        self._append_status_log("Starting pipeline cycle…", "INFO")
+
+        events = self.pipeline_events
+        gui_cfg = self.result
+
+        def _worker():
+            try:
+                runner(events, gui_cfg)
+            except Exception as exc:  # pylint: disable=W0718
+                events.cycle_error(f"Worker crashed: {exc}")
+
+        self.pipeline_thread = threading.Thread(
+            target=_worker, name="VLMPipeline", daemon=True)
+        self.pipeline_thread.start()
+        self.root.after(100, self._poll_events)
+
+    def _poll_events(self):
+        """Drain pipeline events on the Tk main loop."""
+        from ..pipeline_events import (  # pylint: disable=C0415
+            EV_CYCLE_DONE, EV_CYCLE_ERROR, EV_HUMAN_REVIEW, EV_LOG,
+            EV_SKIP_VALIDATION, EV_STATE)
+
+        if self.pipeline_events is None:
+            return
+        for kind, payload in self.pipeline_events.drain():
+            if kind == EV_STATE:
+                state = payload.get("state", "?")
+                attempt = payload.get("attempt", 0)
+                self._on_pipeline_state(state)
+                label = f"⚙ {state}"
+                if attempt:
+                    label += f"   (attempt {attempt})"
+                if self.status_state_label is not None:
+                    self.status_state_label.config(text=label)
+            elif kind == EV_LOG:
+                self._append_status_log(
+                    payload.get("message", ""), payload.get("level", "INFO"))
+            elif kind == EV_CYCLE_DONE:
+                self._append_status_log("✓ Cycle completed.", "INFO")
+                if self.status_state_label is not None:
+                    self.status_state_label.config(
+                        text="✓ DONE",
+                        fg=self.PALETTE["accent_cyan"])
+                self._on_cycle_finished(success=True)
+            elif kind == EV_CYCLE_ERROR:
+                msg = payload.get("message", "")
+                self._append_status_log(f"✗ Cycle error: {msg}", "ERROR")
+                if self.status_state_label is not None:
+                    self.status_state_label.config(
+                        text="✗ ERROR", fg="#ff6b6b")
+                self._on_cycle_finished(success=False)
+            elif kind == EV_HUMAN_REVIEW:
+                self._handle_human_review_request(payload["request"])
+            elif kind == EV_SKIP_VALIDATION:
+                self._handle_skip_validation_request(payload["request"])
+
+        # Keep polling while a cycle is active
+        if self.pipeline_thread is not None and self.pipeline_thread.is_alive():
+            self.root.after(100, self._poll_events)
+        else:
+            # Final drain: schedule one more pass to catch trailing events
+            self.root.after(150, self._final_drain)
+
+    def _final_drain(self):
+        from ..pipeline_events import (  # pylint: disable=C0415
+            EV_CYCLE_DONE, EV_CYCLE_ERROR, EV_LOG, EV_STATE)
+        if self.pipeline_events is None:
+            return
+        for kind, payload in self.pipeline_events.drain():
+            if kind == EV_LOG:
+                self._append_status_log(
+                    payload.get("message", ""), payload.get("level", "INFO"))
+            elif kind == EV_STATE and self.status_state_label is not None:
+                self.status_state_label.config(
+                    text=f"⚙ {payload.get('state', '?')}")
+            elif kind in (EV_CYCLE_DONE, EV_CYCLE_ERROR):
+                self._on_cycle_finished(success=(kind == EV_CYCLE_DONE))
+
+    def _handle_human_review_request(self, request):
+        from ..human_review import \
+            ask_human_review_with_feedback  # pylint: disable=C0415
+        try:
+            approved, feedback = ask_human_review_with_feedback(
+                parent=self.root)
+        except Exception as exc:  # pylint: disable=W0718
+            self._append_status_log(
+                f"Human review dialog failed: {exc}", "ERROR")
+            approved, feedback = False, ""
+        request.result = (approved, feedback)
+        request.done.set()
+
+    def _handle_skip_validation_request(self, request):
+        from ..human_review import ask_skip_validation  # pylint: disable=C0415
+        try:
+            skip = ask_skip_validation(parent=self.root)
+        except Exception as exc:  # pylint: disable=W0718
+            self._append_status_log(
+                f"Skip-validation dialog failed: {exc}", "ERROR")
+            skip = False
+        request.result = skip
+        request.done.set()
+
+    def _on_pipeline_state(self, state: str) -> None:
+        """React to orchestrator state changes (camera lifecycle hooks)."""
+        # Only PLAN_TRAJECTORY needs exclusive access to the RealSense device.
+        if state == "PLAN_TRAJECTORY":
+            if self.camera_running:
+                self._stop_camera()
+        else:
+            # Re-acquire camera as soon as we leave PLAN_TRAJECTORY.
+            if not self.camera_running and self.pipeline is None:
+                self._init_camera()
+                self._start_camera_feed()
+
+    def _on_stop_pipeline(self):
+        if self.pipeline_events is not None:
+            self.pipeline_events.request_stop()
+            self._append_status_log(
+                "Stop requested — cycle will end after current state.",
+                "WARNING")
+        if self.stop_btn is not None:
+            self.stop_btn.config(state=tk.DISABLED, text="STOPPING…")
+
+    def _on_cycle_finished(self, success: bool):
+        """Called from _poll_events when the worker thread reports completion."""
+        # If --once mode, close the GUI after the cycle finishes.
+        if self._cycle_should_exit_after:
+            self.root.after(800, self._on_close)
+            return
+        # Otherwise reset to the wizard for the next cycle after a short delay.
+        self.root.after(1500, self._reset_to_wizard)
+
+    def _reset_to_wizard(self):
+        """Tear down pipeline state and reset GUI back to step 1 of the wizard."""
+        self.pipeline_thread = None
+        self.pipeline_events = None
+        self.result = None
+
+        if self.stop_btn is not None:
+            self.stop_btn.config(state=tk.NORMAL, text="✕ STOP")
+
+        # Hide status, restore nav buttons
+        self.step_frames["status"].pack_forget()
+        # Re-add nav buttons (back/cancel always present; next/confirm chosen by step)
+        self.back_btn.pack(side=tk.LEFT)
+        # Show step 1 (this also re-positions confirm/next buttons appropriately)
+        self.task_var.set("stack")
+        self._show_step(1)
+
+        # Re-acquire the RealSense camera for the next cycle.
+        if not self.camera_running:
+            self._init_camera()
+            self._start_camera_feed()
+
     def _show_step(self, step):
         """Show the specified step and hide others."""
         self.current_step = step
@@ -1314,6 +1587,11 @@ class VLMInputGUI:
 
     def _on_close(self):
         """Handle window close event."""
+        # If a pipeline cycle is active, ask it to stop and wait briefly.
+        if self.pipeline_thread is not None and self.pipeline_thread.is_alive():
+            if self.pipeline_events is not None:
+                self.pipeline_events.request_stop()
+            self.pipeline_thread.join(timeout=2.0)
         self.animation_running = False
         self._stop_camera()
         self._cancel_all_after()
@@ -1322,7 +1600,7 @@ class VLMInputGUI:
         self.root.destroy()
 
     def _confirm(self):
-        """Store selected values and close the GUI."""
+        """Validate user input, save YAML, and hand off to the pipeline."""
         task = self.task_var.get()
 
         if task == "stack":
@@ -1338,9 +1616,6 @@ class VLMInputGUI:
                 tk.messagebox.showwarning(
                     "Warning", "Please drag at least 2 blocks into the stack.")
                 return
-
-            self.animation_running = False
-            self._stop_camera()
 
             self.result = {
                 "task": "stack blocks",
@@ -1361,9 +1636,6 @@ class VLMInputGUI:
                     "Warning", "Please map at least one block to a target position.")
                 return
 
-            self.animation_running = False
-            self._stop_camera()
-
             self.result = {
                 "task": "sort blocks",
                 # {"red": (x, y), ...}
@@ -1381,9 +1653,17 @@ class VLMInputGUI:
         # Save result to YAML file
         self._save_result_yaml()
 
-        self._cancel_all_after()
-        self.root.quit()
-        self.root.destroy()
+        # Hand off to pipeline if one is configured, otherwise close legacy-style.
+        if self.on_confirm is not None:
+            # Camera stays alive; we only release it briefly when the
+            # PLAN_TRAJECTORY state runs (the detector opens its own pipeline).
+            self.on_confirm(self.result)
+        else:
+            self.animation_running = False
+            self._stop_camera()
+            self._cancel_all_after()
+            self.root.quit()
+            self.root.destroy()
 
     def _save_result_yaml(self):
         """Save the result configuration to a YAML file."""
@@ -1448,5 +1728,45 @@ def get_user_input(display_index=None):
     """
     root = tk.Tk()
     app = VLMInputGUI(root, display_index=display_index)
+    root.mainloop()
+    return app.get_result()
+
+
+def run_app(config, initial_gui=None, run_once=False):
+    """Run the persistent GUI driving the pipeline.
+
+    The GUI stays open across cycles. After the user clicks Finish, a
+    background thread runs `VLMOrchestrator(config, gui_config=result,
+    events=events).run()`. While the orchestrator runs, the right-hand panel
+    shows the current state and a live log; when the cycle ends, the GUI
+    resets to step 1 (or exits if `run_once=True`).
+
+    If `initial_gui` is supplied, the wizard is skipped for the first cycle
+    and the pipeline is launched immediately with that config.
+    """
+    from ..orchestrator import VLMOrchestrator  # pylint: disable=C0415
+
+    root = tk.Tk()
+    app = VLMInputGUI(root, display_index=config.display_index)
+
+    def runner(events, gui_cfg):
+        orch = VLMOrchestrator(config, gui_config=gui_cfg, events=events)
+        try:
+            orch.run()
+        finally:
+            orch.shutdown()
+
+    app.on_confirm = lambda result: app.start_pipeline(runner)
+    app._cycle_should_exit_after = run_once
+
+    # Skip the wizard on first cycle if a preloaded config was supplied
+    if initial_gui is not None:
+        app.result = initial_gui
+        # Defer until the main loop is up so widgets are realized
+        def _kickoff():
+            app._stop_camera()
+            app.start_pipeline(runner)
+        root.after(200, _kickoff)
+
     root.mainloop()
     return app.get_result()

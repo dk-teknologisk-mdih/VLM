@@ -23,6 +23,7 @@ import time
 
 from .config import Config, State
 from .human_review import ask_human_review_with_feedback, ask_skip_validation
+from .pipeline_events import PipelineEvents, QueueLogHandler
 from .robot_connection import RobotConnection
 from .robotstudio import RobotStudioAutomation
 
@@ -39,10 +40,22 @@ logger = logging.getLogger("orchestrator")
 class VLMOrchestrator:
     """State machine driving GUI -> VLM -> LLM -> RobotStudio -> Robot."""
 
-    def __init__(self, config: Config, gui_config: dict | None = None):
+    def __init__(
+        self,
+        config: Config,
+        gui_config: dict | None = None,
+        events: PipelineEvents | None = None,
+    ):
         self.config = config
         self.state = State.RUN_GUI if gui_config is None else State.PLAN_TRAJECTORY
         self.gui_config: dict | None = gui_config
+        self.events = events
+        self._log_handler: QueueLogHandler | None = None
+        if events is not None:
+            self._log_handler = QueueLogHandler(events)
+            self._log_handler.setFormatter(
+                logging.Formatter("%(levelname)s %(message)s"))
+            logger.addHandler(self._log_handler)
 
         # Runtime artefacts
         self.stacking_plan_3d = None
@@ -87,6 +100,11 @@ class VLMOrchestrator:
         }
 
         while self.state not in (State.DONE, State.ERROR):
+            if self.events is not None:
+                if self.events.stop_requested():
+                    logger.info("Stop requested; ending cycle.")
+                    self.state = State.CLEANUP
+                self.events.state_changed(self.state.name, self.attempt)
             logger.info(f"State: {self.state.name}")
             handler = handlers.get(self.state)
             if handler is None:
@@ -97,9 +115,18 @@ class VLMOrchestrator:
 
         if self.state == State.DONE:
             logger.info("Pipeline cycle completed successfully.")
+            if self.events is not None:
+                self.events.cycle_done()
         else:
             logger.error(
                 f"Pipeline ended in error. Last error: {self.error_message}")
+            if self.events is not None:
+                self.events.cycle_error(self.error_message)
+
+        # Detach log handler so we don't accumulate handlers across cycles
+        if self._log_handler is not None:
+            logger.removeHandler(self._log_handler)
+            self._log_handler = None
 
     # ---- State handlers ----------------------------------------------
 
@@ -199,7 +226,11 @@ class VLMOrchestrator:
     def _state_validate(self):
         if not self.robotstudio.app:
             if not self.robotstudio.connect_to_robotstudio():
-                if ask_skip_validation():
+                if self.events is not None:
+                    skip = self.events.request_skip_validation()
+                else:
+                    skip = ask_skip_validation()
+                if skip:
                     logger.warning(
                         "RobotStudio not available. User chose to skip validation.")
                     self.state = State.TRANSFER_TO_ROBOT
@@ -244,7 +275,10 @@ class VLMOrchestrator:
             self.state = State.FIX_SYNTAX_ERRORS
 
     def _state_human_review(self):
-        approved, feedback = ask_human_review_with_feedback()
+        if self.events is not None:
+            approved, feedback = self.events.request_human_review()
+        else:
+            approved, feedback = ask_human_review_with_feedback()
         if approved:
             logger.info("Human approved the simulation.")
             self.state = State.TRANSFER_TO_ROBOT
