@@ -52,7 +52,7 @@ class Config:
 
     # ----- RobotStudio UI automation -----
     use_robotstudio_validation: bool = True
-    robotstudio_window_title: str = "RobotStudio"
+    robotstudio_window_title: str = "AIMatters_stacking - RobotStudio"
     controller_id: str = "15000-500064"
     module_name: str = "generated_task"
 
