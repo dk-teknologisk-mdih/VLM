@@ -11,3 +11,4 @@ ABB_gripper_camera_calib/
 *.zip
 .env
 orchestrator.log
+generated_modules/
