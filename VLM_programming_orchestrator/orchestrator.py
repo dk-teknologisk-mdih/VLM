@@ -234,6 +234,7 @@ class VLMOrchestrator:
             return
 
         success, errors = self.robotstudio.wait_for_simulation_complete()
+        self.robotstudio.stop_simulation()
         if success:
             logger.info("Simulation completed successfully.")
             if self.config.require_human_review:
