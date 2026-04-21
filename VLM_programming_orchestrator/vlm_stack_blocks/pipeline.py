@@ -54,7 +54,7 @@ def plan_stacking_trajectory(
 
     # Initialize detector and capture image
     detector = GeminiRoboticsDetector(
-        api_key, base_url=base_url, exposure=exposure, contrast=contrast, brightness_target=brightness_target)
+        api_key, exposure=exposure, contrast=contrast, brightness_target=brightness_target)
     image, depth_frame, depth_intrinsic = detector.capture_realsense_image(
         "0_raw_realsense_capture.png")
     image_size = image.size
