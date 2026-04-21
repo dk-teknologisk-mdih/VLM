@@ -84,12 +84,13 @@ def main():
     # Optionally preload a saved GUI config (skips the GUI for the first cycle)
     initial_gui = None
     if args.from_file:
-        if not config.gui_config_path.exists():
-            print(f"ERROR: saved GUI config not found at {config.gui_config_path}",
+        full_path = Path("vlm_programming_orchestrator/gui") / config.gui_config_path
+        if not full_path.exists():
+            print(f"ERROR: saved GUI config not found at {full_path}",
                   file=sys.stderr)
             sys.exit(1)
-        initial_gui = load_gui_config_from_file(config.gui_config_path)
-        print(f"Loaded GUI config from {config.gui_config_path}")
+        initial_gui = load_gui_config_from_file(full_path)
+        print(f"Loaded GUI config from {full_path}")
 
     if args.once:
         orch = VLMOrchestrator(config, gui_config=initial_gui)
