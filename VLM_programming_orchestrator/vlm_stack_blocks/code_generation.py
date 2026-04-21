@@ -63,19 +63,19 @@ def extract_code_block(text):
     return text.strip()
 
 
-def _post_claude(api_key, base_url, messages, model="claude-opus-4-6", max_tokens=4096):
+def _get_llm_response(llm_api_url, messages):
     """POST to the Claude proxy and return the response text (or None on failure)."""
-    payload = {"model": model, "max_tokens": max_tokens, "messages": messages}
-    url = f"{base_url}/v1/messages"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "anthropic-version": "2023-06-01",
-    }
+    payload = {"messages": messages}
+    url = f"{llm_api_url}"
+    # headers = {
+    #     "Authorization": f"Bearer {api_key}",
+    #     "Content-Type": "application/json",
+    #     "anthropic-version": "2023-06-01",
+    # }
 
     try:
         response = requests.post(
-            url, headers=headers, json=payload, verify=False, timeout=180
+            url, json=payload, verify=False, timeout=180
         )
     except requests.exceptions.RequestException as e:
         print(f"Request to Claude failed: {e}")
@@ -88,27 +88,25 @@ def _post_claude(api_key, base_url, messages, model="claude-opus-4-6", max_token
 
     try:
         result = response.json()
-        return result["content"][0]["text"]
+        return result["content"]
     except (KeyError, IndexError, json.JSONDecodeError) as e:
         print(f"Error extracting response from Claude: {e}")
         print(f"Full response: {response.text[:500]}")
         return None
 
 
-def call_claude_for_robot_code(
-    api_key,
-    base_url,
+def call_llm_for_robot_code(
+    url,
     stacking_plan_3d,
     robot_type="ABB",
     code_language="Rapid",
     task_description_file="ABB_task_description_VLM.txt",
     best_practices_file="ABB_Best_Practices.txt",
-    model="claude-opus-4-6",
 ):
     """Generate robot control code from a 3D stacking plan.
 
     Returns (generated_text, prompt). `prompt` can be passed back to
-    `call_claude_to_fix_code` so the fix request carries the original context.
+    `call_llm_to_fix_code` so the fix request carries the original context.
     """
     prompt = build_stacking_prompt(
         stacking_plan_3d,
@@ -118,9 +116,9 @@ def call_claude_for_robot_code(
         best_practices_file=best_practices_file,
     )
 
-    print("\n=== Calling Claude for robot code generation ===")
-    generated = _post_claude(
-        api_key, base_url, [{"role": "user", "content": prompt}], model=model
+    print("\n=== Calling LLM for robot code generation ===")
+    generated = _get_llm_response(
+        url, [{"role": "user", "content": prompt}]
     )
     if generated is None:
         return None, prompt
@@ -133,15 +131,13 @@ def call_claude_for_robot_code(
     return generated, prompt
 
 
-def call_claude_to_fix_code(
-    api_key,
-    base_url,
+def call_llm_to_fix_code(
+    url,
     current_code,
     error_message,
     original_prompt,
     robot_type="ABB",
     code_language="Rapid",
-    model="claude-opus-4-6",
 ):
     """Ask Claude to fix the given code based on an error/feedback message.
 
@@ -162,7 +158,7 @@ def call_claude_to_fix_code(
     ]
 
     print("\n=== Calling Claude to fix robot code ===")
-    fixed = _post_claude(api_key, base_url, messages, model=model)
+    fixed = _get_llm_response(url, messages)
     if fixed is None:
         return None
 

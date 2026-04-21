@@ -6,8 +6,8 @@ Uses requests-based API calls through a corporate proxy.
 """
 
 from .code_generation import (build_stacking_prompt,
-                              call_claude_for_robot_code,
-                              call_claude_to_fix_code, extract_code_block)
+                              call_llm_for_robot_code,
+                              call_llm_to_fix_code, extract_code_block)
 from .detection import (add_depth_to_detections, detect_blocks,
                         detect_target_location)
 from .detector import GeminiRoboticsDetector
@@ -18,8 +18,8 @@ from .utils import print_summary, save_detections, save_stacking_plan
 
 __all__ = [
     "plan_stacking_trajectory",
-    "call_claude_for_robot_code",
-    "call_claude_to_fix_code",
+    "call_llm_for_robot_code",
+    "call_llm_to_fix_code",
     "build_stacking_prompt",
     "extract_code_block",
     "GeminiRoboticsDetector",

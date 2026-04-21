@@ -136,7 +136,7 @@ class VLMOrchestrator:
     def _state_generate_code(self):
         # Late import to avoid pulling LLM deps until this step
         from .vlm_stack_blocks import (  # pylint: disable=C0415
-            call_claude_for_robot_code, call_claude_to_fix_code,
+            call_llm_for_robot_code, call_llm_to_fix_code,
             extract_code_block)
         self.attempt += 1
         if self.attempt > self.config.max_retry_attempts:
@@ -149,27 +149,23 @@ class VLMOrchestrator:
         )
 
         if self.attempt == 1:
-            generated, prompt = call_claude_for_robot_code(
-                self.config.api_key,
+            generated, prompt = call_llm_for_robot_code(
                 self.config.base_url,
                 self.stacking_plan_3d,
                 robot_type=self.config.robot_type,
                 code_language=self.config.code_language,
                 task_description_file=self.config.task_description_file,
                 best_practices_file=self.config.best_practices_file,
-                model=self.config.llm_model,
             )
             self.current_prompt = prompt
         else:
-            generated = call_claude_to_fix_code(
-                self.config.api_key,
+            generated = call_llm_to_fix_code(
                 self.config.base_url,
                 self.current_raw_code or self.current_code,
                 self.error_message,
                 self.current_prompt,
                 robot_type=self.config.robot_type,
                 code_language=self.config.code_language,
-                model=self.config.llm_model,
             )
 
         if not generated:
