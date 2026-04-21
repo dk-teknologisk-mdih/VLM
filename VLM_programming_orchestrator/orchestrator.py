@@ -106,7 +106,7 @@ class VLMOrchestrator:
     def _state_run_gui(self):
         from .gui import get_user_input  # pylint: disable=C0415
         logger.info("Launching GUI for user input...")
-        self.gui_config = get_user_input()
+        self.gui_config = get_user_input(display_index=self.config.display_index)
         if self.gui_config is None:
             logger.info("User cancelled the GUI.")
             self.state = State.DONE

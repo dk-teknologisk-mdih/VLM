@@ -59,11 +59,22 @@ class Config:
     # ----- Human review -----
     require_human_review: bool = True
 
+    # ----- Display / monitor selection -----
+    # Index into screeninfo.get_monitors() for the wizard GUI and review
+    # dialogs. None falls back to the VLM_GUI_DISPLAY env var, then 0.
+    display_index: Optional[int] = 1
+
     # ----- Continuous loop -----
     cycle_delay_seconds: float = 2.0
 
     # ----- Free-form task description (overrides GUI if set) -----
     task_description: Optional[str] = None
+
+    def __post_init__(self):
+        # Propagate display selection to env var so submodules (GUI, human
+        # review dialogs) pick it up via display_utils.get_target_monitor().
+        if self.display_index is not None:
+            os.environ["VLM_GUI_DISPLAY"] = str(self.display_index)
 
 
 class State(Enum):

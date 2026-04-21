@@ -13,6 +13,7 @@ import yaml
 from PIL import Image, ImageTk
 
 from .constants import ALL_BLOCK_COLORS, AREA_COLORS, PALETTE
+from .display_utils import get_target_monitor
 from .stack_builder import StackBuilder
 
 
@@ -23,11 +24,20 @@ class VLMInputGUI:
     AREA_COLORS = AREA_COLORS
     PALETTE = PALETTE
 
-    def __init__(self, root):
+    def __init__(self, root, display_index=None):
         self.root = root
         self.root.title("✨ VLM Block Manipulation ✨")
-        self.root.geometry("1750x820")
-        self.root.resizable(False, False)
+
+        # Resolve target monitor and place window on it before going fullscreen
+        monitor = get_target_monitor(display_index)
+        self.screen_w = int(monitor.width)
+        self.screen_h = int(monitor.height)
+        self.root.geometry(
+            f"{self.screen_w}x{self.screen_h}+{int(monitor.x)}+{int(monitor.y)}")
+        print(f"GUI: Placing window on monitor {display_index} at ({monitor.x}, {monitor.y}) with size ({monitor.width}x{monitor.height})")
+        self.root.update_idletasks()
+        #self.root.attributes("-fullscreen", True)
+        self.root.overrideredirect(True)
         self.root.configure(bg=self.PALETTE["bg_dark"])
 
         # Animation state
@@ -83,6 +93,9 @@ class VLMInputGUI:
 
         # Handle window close
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+
+        # Escape exits fullscreen wizard cleanly
+        self.root.bind("<Escape>", lambda e: self._on_close())
 
         # Keyboard shortcuts for camera exposure / contrast
         self.root.bind("<e>", lambda e: self._adjust_camera("exposure", 50))
@@ -291,17 +304,19 @@ class VLMInputGUI:
                               ('!active', self.PALETTE["text_bright"])],
                   background=[('active', self.PALETTE["accent_cyan"]), ('!active', self.PALETTE["accent_purple"])])
 
-        # Main background canvas for gradient and particles
+        # Main background canvas for gradient and particles (fills whole monitor)
         self.bg_canvas = tk.Canvas(
-            self.root, width=1750, height=820, highlightthickness=0)
+            self.root, width=self.screen_w, height=self.screen_h,
+            highlightthickness=0)
         self.bg_canvas.pack(fill=tk.BOTH, expand=True)
         self._draw_gradient_background()
         self._init_particles()
 
-        # Main container with two columns
+        # Main container with two columns - centered on screen, fixed size
         main_frame = tk.Frame(self.bg_canvas, bg=self.PALETTE["bg_dark"])
         self.bg_canvas.create_window(
-            875, 410, window=main_frame, width=1730, height=800)
+            self.screen_w // 2, self.screen_h // 2,
+            window=main_frame, width=1730, height=800)
 
         # Left side - Camera preview with glowing border
         camera_container = tk.Frame(main_frame, bg=self.PALETTE["bg_dark"])
@@ -435,7 +450,7 @@ class VLMInputGUI:
 
     def _draw_gradient_background(self):
         """Draw a vibrant gradient background."""
-        width, height = 1750, 820
+        width, height = self.screen_w, self.screen_h
         # Create gradient from dark purple to dark blue with some accent
         for i in range(height):
             ratio = i / height
@@ -458,9 +473,9 @@ class VLMInputGUI:
             )
 
         # Add diagonal accent lines
-        for i in range(0, 1400, 100):
+        for i in range(0, width + 400, 100):
             self.bg_canvas.create_line(
-                i, 0, i - 400, 820,
+                i, 0, i - 400, height,
                 fill="#1a0a30", width=1
             )
 
@@ -469,8 +484,8 @@ class VLMInputGUI:
         self.particles = []
         for _ in range(30):
             particle = {
-                'x': random.randint(0, 1750),
-                'y': random.randint(0, 820),
+                'x': random.randint(0, self.screen_w),
+                'y': random.randint(0, self.screen_h),
                 'size': random.randint(2, 6),
                 'speed': random.uniform(0.3, 1.2),
                 'color': random.choice(['#9d4edd', '#e91e8c', '#00f5d4', '#ffd23f']),
@@ -493,8 +508,8 @@ class VLMInputGUI:
         for p in self.particles:
             p['y'] -= p['speed']
             if p['y'] < -10:
-                p['y'] = 830
-                p['x'] = random.randint(0, 1750)
+                p['y'] = self.screen_h + 10
+                p['x'] = random.randint(0, self.screen_w)
 
             self.bg_canvas.coords(
                 p['id'],
@@ -1409,7 +1424,7 @@ class VLMInputGUI:
         return self.result
 
 
-def get_user_input():
+def get_user_input(display_index=None):
     """
     Display the wizard GUI and return user selection.
 
@@ -1432,6 +1447,6 @@ def get_user_input():
         Returns None if user cancels.
     """
     root = tk.Tk()
-    app = VLMInputGUI(root)
+    app = VLMInputGUI(root, display_index=display_index)
     root.mainloop()
     return app.get_result()
