@@ -49,8 +49,10 @@ class RobotStudioAutomation:
                 timeout=10,
             )
             logger.info("Connected to RobotStudio.")
-            self.main_window = self.app.top_window()
+            self.main_window = self.app.window(title_re=f".*{self.config.robotstudio_window_title}.*", visible_only=False)
             logger.info(f"RobotStudio main window: {self.main_window}")
+            logger.info("Maximizing RobotStudio window.")
+            self.main_window.maximize().set_focus()
             return True
         except Exception as e:
             logger.error(f"Could not connect to RobotStudio: {e}")
