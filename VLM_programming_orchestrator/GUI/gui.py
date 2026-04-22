@@ -372,6 +372,12 @@ class VLMInputGUI:
         # Animated placeholder
         self._draw_camera_placeholder()
 
+        # LLM "thinking" overlay (hidden by default; shown during GENERATE_CODE)
+        self.llm_stream_frame = None
+        self.llm_stream_text = None
+        self.llm_stream_status = None
+        self._create_llm_stream_overlay()
+
         # Right side - Controls with styled background
         self.controls_frame = tk.Frame(
             main_frame, bg=self.PALETTE["bg_dark"], width=380)
@@ -1084,6 +1090,86 @@ class VLMInputGUI:
                 x, y, text=label, fill="white", font=("Arial", 10, "bold"), tags=tag
             )
 
+    # ---- LLM streaming overlay --------------------------------------
+
+    def _create_llm_stream_overlay(self):
+        """Build the (initially hidden) overlay shown over the camera area
+        while the LLM is streaming its response.
+        """
+        parent = self.camera_frame_canvas
+        frame = tk.Frame(parent, bg=self.PALETTE["bg_mid"],
+                         highlightthickness=2,
+                         highlightbackground=self.PALETTE["accent_purple"])
+
+        header = tk.Frame(frame, bg=self.PALETTE["bg_mid"])
+        header.pack(fill=tk.X, padx=10, pady=(8, 4))
+        tk.Label(header, text="🧠 LLM THINKING",
+                 font=("Arial", 14, "bold"),
+                 fg=self.PALETTE["accent_pink"],
+                 bg=self.PALETTE["bg_mid"]).pack(side=tk.LEFT)
+        self.llm_stream_status = tk.Label(
+            header, text="", font=("Arial", 10, "bold"),
+            fg=self.PALETTE["accent_yellow"], bg=self.PALETTE["bg_mid"])
+        self.llm_stream_status.pack(side=tk.RIGHT)
+
+        text_container = tk.Frame(frame, bg=self.PALETTE["bg_mid"])
+        text_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
+
+        scrollbar = tk.Scrollbar(text_container, orient=tk.VERTICAL)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        text = tk.Text(
+            text_container, wrap=tk.WORD,
+            bg=self.PALETTE["bg_dark"],
+            fg=self.PALETTE["accent_cyan"],
+            insertbackground=self.PALETTE["accent_cyan"],
+            relief=tk.FLAT, font=("Consolas", 10),
+            yscrollcommand=scrollbar.set, state=tk.DISABLED)
+        text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.config(command=text.yview)
+
+        text.tag_config("status", foreground=self.PALETTE["accent_yellow"],
+                        font=("Consolas", 10, "italic"))
+        text.tag_config("token", foreground=self.PALETTE["accent_cyan"],
+                        font=("Consolas", 10))
+
+        self.llm_stream_frame = frame
+        self.llm_stream_text = text
+
+    def _show_llm_stream_overlay(self):
+        if self.llm_stream_frame is None:
+            return
+        # Clear previous text
+        self.llm_stream_text.config(state=tk.NORMAL)
+        self.llm_stream_text.delete("1.0", tk.END)
+        self.llm_stream_text.config(state=tk.DISABLED)
+        self.llm_stream_status.config(
+            text="● streaming…", fg=self.PALETTE["accent_yellow"])
+        # Cover the 1280x720 camera canvas area inside camera_frame_canvas
+        self.llm_stream_frame.place(
+            in_=self.camera_frame_canvas, x=10, y=10, width=1280, height=720)
+        self.llm_stream_frame.lift()
+
+    def _hide_llm_stream_overlay(self):
+        if self.llm_stream_frame is not None:
+            self.llm_stream_frame.place_forget()
+
+    def _append_llm_stream_chunk(self, kind: str, content: str):
+        if self.llm_stream_text is None or not content:
+            return
+        self.llm_stream_text.config(state=tk.NORMAL)
+        if kind == "status":
+            # Status events are short messages; show as their own line.
+            self.llm_stream_text.insert(
+                tk.END, f"\n[{content}]\n", "status")
+        else:  # token
+            self.llm_stream_text.insert(tk.END, content, "token")
+        # Cap text length so very long generations don't blow up memory.
+        line_count = int(self.llm_stream_text.index("end-1c").split(".")[0])
+        if line_count > 2000:
+            self.llm_stream_text.delete("1.0", f"{line_count - 2000}.0")
+        self.llm_stream_text.see(tk.END)
+        self.llm_stream_text.config(state=tk.DISABLED)
+
     def _create_status_frame(self):
         """Create the live pipeline status panel (shown after Finish)."""
         frame = tk.Frame(self.step_container, bg=self.PALETTE["bg_dark"])
@@ -1211,6 +1297,7 @@ class VLMInputGUI:
         """Drain pipeline events on the Tk main loop."""
         from ..pipeline_events import (  # pylint: disable=C0415
             EV_CYCLE_DONE, EV_CYCLE_ERROR, EV_HUMAN_REVIEW, EV_LOG,
+            EV_LLM_STREAM_CHUNK, EV_LLM_STREAM_END, EV_LLM_STREAM_START,
             EV_SKIP_VALIDATION, EV_STATE)
 
         if self.pipeline_events is None:
@@ -1246,6 +1333,22 @@ class VLMInputGUI:
                 self._handle_human_review_request(payload["request"])
             elif kind == EV_SKIP_VALIDATION:
                 self._handle_skip_validation_request(payload["request"])
+            elif kind == EV_LLM_STREAM_START:
+                self._show_llm_stream_overlay()
+            elif kind == EV_LLM_STREAM_CHUNK:
+                self._append_llm_stream_chunk(
+                    payload.get("chunk_type", "token"),
+                    payload.get("content", ""))
+            elif kind == EV_LLM_STREAM_END:
+                if self.llm_stream_status is not None:
+                    if payload.get("success"):
+                        self.llm_stream_status.config(
+                            text="✓ done",
+                            fg=self.PALETTE["accent_cyan"])
+                    else:
+                        msg = payload.get("message", "failed")
+                        self.llm_stream_status.config(
+                            text=f"✗ {msg}"[:60], fg="#ff6b6b")
 
         # Keep polling while a cycle is active
         if self.pipeline_thread is not None and self.pipeline_thread.is_alive():
@@ -1295,6 +1398,12 @@ class VLMInputGUI:
 
     def _on_pipeline_state(self, state: str) -> None:
         """React to orchestrator state changes (camera lifecycle hooks)."""
+        # Hide the LLM streaming overlay whenever we leave GENERATE_CODE
+        # (the overlay persists through the 'done' event and is dismissed
+        # only on the next state transition).
+        if state != "GENERATE_CODE":
+            self._hide_llm_stream_overlay()
+
         # Only PLAN_TRAJECTORY needs exclusive access to the RealSense device.
         if state == "PLAN_TRAJECTORY":
             if self.camera_running:

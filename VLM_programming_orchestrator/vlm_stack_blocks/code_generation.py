@@ -1,8 +1,14 @@
-"""LLM-based robot code generation using Claude.
+"""LLM-based robot code generation using Claude (SSE streaming).
 
 Note: `ABB_task_description_VLM.txt` and `ABB_Best_Practices.txt` live in the
 LLM's RAG system — we reference them by name so the model retrieves them itself.
 We do NOT inject their contents into the prompt.
+
+The proxy emits Server-Sent Events of three kinds:
+  - `status`  : intermediate "thinking" / function-call status updates
+  - `token`   : streamed text tokens of the final answer
+  - `done`    : terminal event; stream complete
+  - `error`   : terminal event; stream failed
 """
 
 import json
@@ -13,6 +19,8 @@ import requests
 # Disable SSL warnings for self-signed certificates
 import urllib3
 import yaml
+from requests_sse import (EventSource, InvalidContentTypeError,
+                          InvalidStatusCodeError)
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -63,36 +71,75 @@ def extract_code_block(text):
     return text.strip()
 
 
-def _get_llm_response(llm_api_url, messages):
-    """POST to the Claude proxy and return the response text (or None on failure)."""
+def _stream_llm_response(llm_api_url, messages, events=None):
+    """Stream the LLM response over SSE and return the final text.
+
+    `events` is an optional `PipelineEvents` instance; if supplied, intermediate
+    `status` and `token` chunks are forwarded so the GUI can render the
+    "thinking" phase live. Returns the accumulated token text on success, or
+    `None` on failure.
+    """
     payload = {"messages": messages}
-    url = f"{llm_api_url}"
-    # headers = {
-    #     "Authorization": f"Bearer {api_key}",
-    #     "Content-Type": "application/json",
-    #     "anthropic-version": "2023-06-01",
-    # }
+
+    if events is not None:
+        events.llm_stream_start()
+
+    buffer_parts: list[str] = []
+    success = False
+    err_msg = ""
 
     try:
-        response = requests.post(
-            url, json=payload, verify=False, timeout=180
-        )
-    except requests.exceptions.RequestException as e:
-        print(f"Request to Claude failed: {e}")
-        return None
+        with EventSource(
+            llm_api_url,
+            timeout=180,
+            verify=False,
+            headers={"Accept-Encoding": "identity"},
+            method="POST",
+            json=payload,
+        ) as event_source:
+            try:
+                for event in event_source:
+                    if event.type != "message":
+                        continue
+                    try:
+                        data = json.loads(event.data)
+                    except json.JSONDecodeError:
+                        continue
+                    kind = data.get("type")
+                    content = data.get("content", "")
+                    if kind == "status":
+                        if events is not None:
+                            events.llm_stream_chunk("status", content)
+                    elif kind == "token":
+                        buffer_parts.append(content)
+                        if events is not None:
+                            events.llm_stream_chunk("token", content)
+                    elif kind == "error":
+                        err_msg = content or "Unknown stream error"
+                        print(f"\nLLM stream error: {err_msg}")
+                        break
+                    elif kind == "done":
+                        success = True
+                        break
+            except InvalidStatusCodeError as e:
+                err_msg = f"Invalid status code: {e}"
+                print(err_msg)
+            except InvalidContentTypeError as e:
+                err_msg = f"Invalid content type: {e}"
+                print(err_msg)
+            except requests.RequestException as e:
+                err_msg = f"Request error: {e}"
+                print(err_msg)
+    except Exception as e:  # pylint: disable=W0718
+        err_msg = f"Failed to open SSE stream: {e}"
+        print(err_msg)
+    finally:
+        if events is not None:
+            events.llm_stream_end(success=success, message=err_msg)
 
-    if response.status_code != 200:
-        print(f"Error: Status code {response.status_code}")
-        print(f"Response: {response.text}")
+    if not success:
         return None
-
-    try:
-        result = response.json()
-        return result["content"]
-    except (KeyError, IndexError, json.JSONDecodeError) as e:
-        print(f"Error extracting response from Claude: {e}")
-        print(f"Full response: {response.text[:500]}")
-        return None
+    return "".join(buffer_parts)
 
 
 def call_llm_for_robot_code(
@@ -102,11 +149,13 @@ def call_llm_for_robot_code(
     code_language="Rapid",
     task_description_file="ABB_task_description_VLM.txt",
     best_practices_file="ABB_Best_Practices.txt",
+    events=None,
 ):
     """Generate robot control code from a 3D stacking plan.
 
     Returns (generated_text, prompt). `prompt` can be passed back to
     `call_llm_to_fix_code` so the fix request carries the original context.
+    `events` is forwarded to the SSE streamer for live GUI updates.
     """
     prompt = build_stacking_prompt(
         stacking_plan_3d,
@@ -117,8 +166,8 @@ def call_llm_for_robot_code(
     )
 
     print("\n=== Calling LLM for robot code generation ===")
-    generated = _get_llm_response(
-        url, [{"role": "user", "content": prompt}]
+    generated = _stream_llm_response(
+        url, [{"role": "user", "content": prompt}], events=events
     )
     if generated is None:
         return None, prompt
@@ -138,6 +187,7 @@ def call_llm_to_fix_code(
     original_prompt,
     robot_type="ABB",
     code_language="Rapid",
+    events=None,
 ):
     """Ask Claude to fix the given code based on an error/feedback message.
 
@@ -158,7 +208,7 @@ def call_llm_to_fix_code(
     ]
 
     print("\n=== Calling Claude to fix robot code ===")
-    fixed = _get_llm_response(url, messages)
+    fixed = _stream_llm_response(url, messages, events=events)
     if fixed is None:
         return None
 

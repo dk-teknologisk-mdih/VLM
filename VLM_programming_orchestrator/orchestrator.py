@@ -183,6 +183,7 @@ class VLMOrchestrator:
                 code_language=self.config.code_language,
                 task_description_file=self.config.task_description_file,
                 best_practices_file=self.config.best_practices_file,
+                events=self.events,
             )
             self.current_prompt = prompt
         else:
@@ -193,6 +194,7 @@ class VLMOrchestrator:
                 self.current_prompt,
                 robot_type=self.config.robot_type,
                 code_language=self.config.code_language,
+                events=self.events,
             )
 
         if not generated:

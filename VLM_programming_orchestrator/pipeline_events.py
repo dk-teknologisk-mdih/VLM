@@ -20,6 +20,9 @@ EV_CYCLE_DONE = "cycle_done"
 EV_CYCLE_ERROR = "cycle_error"
 EV_HUMAN_REVIEW = "human_review_request"
 EV_SKIP_VALIDATION = "skip_validation_request"
+EV_LLM_STREAM_START = "llm_stream_start"
+EV_LLM_STREAM_CHUNK = "llm_stream_chunk"
+EV_LLM_STREAM_END = "llm_stream_end"
 
 
 @dataclass
@@ -54,6 +57,15 @@ class PipelineEvents:
         self.post(EV_HUMAN_REVIEW, request=req)
         req.done.wait()
         return req.result if req.result is not None else (False, "")
+
+    def llm_stream_start(self, label: str = "") -> None:
+        self.post(EV_LLM_STREAM_START, label=label)
+
+    def llm_stream_chunk(self, chunk_type: str, content: str) -> None:
+        self.post(EV_LLM_STREAM_CHUNK, chunk_type=chunk_type, content=content)
+
+    def llm_stream_end(self, success: bool = True, message: str = "") -> None:
+        self.post(EV_LLM_STREAM_END, success=success, message=message)
 
     def request_skip_validation(self) -> bool:
         req = PipelineRequest()
