@@ -65,8 +65,12 @@ class RobotStudioAutomation:
             return False
 
         try:
-            tab = self.main_window.Ribbon.RibbonTabBar.child_window(
-                title=tab_name.value, control_type="TabItem")
+            tab = (
+                self.main_window
+                .child_window(control_type="Pane",title="Ribbon")
+                .child_window(control_type="Tab", title="RibbonTabBar")
+                .child_window(title=tab_name.value, control_type="TabItem")
+            )
             self.main_window.set_focus()
             tab.click_input()
             logger.info(f"Switched to {tab_name} tab.")
