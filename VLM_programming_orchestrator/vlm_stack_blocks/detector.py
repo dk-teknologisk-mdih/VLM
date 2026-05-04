@@ -43,7 +43,7 @@ class GeminiRoboticsDetector:
         """
         self.api_key = api_key
         self.base_url = base_url.rstrip('/')
-        self.model_id = "gemini-robotics-er-1.5-preview"
+        self.model_id = "gemini-robotics-er-1.6-preview"
         self.exposure = exposure
         self.exposure_time = exposure
         self.contrast = contrast
