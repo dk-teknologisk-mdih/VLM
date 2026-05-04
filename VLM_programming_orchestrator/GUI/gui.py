@@ -18,6 +18,22 @@ from .display_utils import get_target_monitor
 from .stack_builder import StackBuilder
 
 
+class _StatusStateProxy:
+    """Tiny shim that mimics ``tk.Label.config(text=..., fg=...)`` but writes
+    into the marquee canvas owned by :class:`VLMInputGUI`.
+    """
+
+    def __init__(self, gui):
+        self._gui = gui
+
+    def config(self, **kwargs):
+        text = kwargs.get("text")
+        fg = kwargs.get("fg") or kwargs.get("foreground")
+        self._gui._set_status_state(text=text, fg=fg)
+
+    configure = config
+
+
 class VLMInputGUI:
     """Wizard-style GUI for configuring VLM block manipulation tasks."""
 
@@ -1185,11 +1201,24 @@ class VLMInputGUI:
         tk.Label(state_box, text="Current state",
                  font=("Arial", 9), fg=self.PALETTE["text_dim"],
                  bg=self.PALETTE["bg_mid"]).pack(anchor=tk.W)
-        self.status_state_label = tk.Label(
-            state_box, text="(starting…)",
-            font=("Consolas", 13, "bold"),
-            fg=self.PALETTE["accent_cyan"], bg=self.PALETTE["bg_mid"])
-        self.status_state_label.pack(anchor=tk.W, pady=(2, 0))
+        # Marquee canvas: clips overflow and lets us scroll long state names.
+        self.status_state_canvas = tk.Canvas(
+            state_box, height=22, bg=self.PALETTE["bg_mid"],
+            highlightthickness=0)
+        self.status_state_canvas.pack(fill=tk.X, pady=(2, 0))
+        self._status_state_fg = self.PALETTE["accent_cyan"]
+        self._status_state_text = "(starting…)"
+        self._status_state_scroll_x = 0
+        self._status_state_scroll_dir = -1
+        self._status_state_pause = 0
+        self.status_state_text_id = self.status_state_canvas.create_text(
+            0, 11, anchor=tk.W, text=self._status_state_text,
+            font=("Consolas", 13, "bold"), fill=self._status_state_fg)
+        # Backwards-compat alias: code that used to call
+        # self.status_state_label.config(text=..., fg=...) goes through a
+        # tiny shim that updates the canvas text.
+        self.status_state_label = _StatusStateProxy(self)
+        self.root.after(60, self._animate_status_state)
 
         log_label = tk.Label(
             frame, text="📜 Log",
@@ -1219,6 +1248,61 @@ class VLMInputGUI:
         self.stop_btn.pack(pady=(0, 4))
 
         self.step_frames["status"] = frame
+
+    def _set_status_state(self, text=None, fg=None):
+        """Update the marquee state label text and/or color."""
+        if text is not None:
+            self._status_state_text = text
+            self.status_state_canvas.itemconfig(
+                self.status_state_text_id, text=text)
+            # Reset scroll position whenever text changes.
+            self._status_state_scroll_x = 0
+            self._status_state_scroll_dir = -1
+            self._status_state_pause = 20  # short pause before scrolling
+            self.status_state_canvas.coords(
+                self.status_state_text_id, 0, 11)
+        if fg is not None:
+            self._status_state_fg = fg
+            self.status_state_canvas.itemconfig(
+                self.status_state_text_id, fill=fg)
+
+    def _animate_status_state(self):
+        """Bounce the state-label text horizontally if it overflows."""
+        if not self.animation_running:
+            return
+        try:
+            canvas = self.status_state_canvas
+            if canvas is None or not canvas.winfo_exists():
+                return
+            canvas_w = canvas.winfo_width()
+            bbox = canvas.bbox(self.status_state_text_id)
+            if bbox and canvas_w > 1:
+                text_w = bbox[2] - bbox[0]
+                overflow = text_w - canvas_w
+                if overflow > 0:
+                    if self._status_state_pause > 0:
+                        self._status_state_pause -= 1
+                    else:
+                        self._status_state_scroll_x += (
+                            self._status_state_scroll_dir * 2)
+                        if self._status_state_scroll_x <= -overflow - 4:
+                            self._status_state_scroll_x = -overflow - 4
+                            self._status_state_scroll_dir = 1
+                            self._status_state_pause = 20
+                        elif self._status_state_scroll_x >= 0:
+                            self._status_state_scroll_x = 0
+                            self._status_state_scroll_dir = -1
+                            self._status_state_pause = 20
+                        canvas.coords(
+                            self.status_state_text_id,
+                            self._status_state_scroll_x, 11)
+                else:
+                    if self._status_state_scroll_x != 0:
+                        self._status_state_scroll_x = 0
+                        canvas.coords(self.status_state_text_id, 0, 11)
+        except Exception:
+            pass
+        self.root.after(50, self._animate_status_state)
 
     def _show_status(self):
         """Hide wizard step frames and nav buttons; show the status panel."""
@@ -1560,7 +1644,7 @@ class VLMInputGUI:
         elif task == "stack" and step == 2:
             # Stack Step 2: Show "Confirm Order" button
             self.confirm_btn.pack_forget()
-            self.next_btn.config(text="CONFIRM ORDER ▶")
+            self.next_btn.config(text="CONFIRM ▶")
             self.next_btn.pack(side=tk.RIGHT)
         elif task == "stack" and step == 3:
             # Stack Step 3: Show "Finish" button
