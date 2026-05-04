@@ -15,40 +15,58 @@ class _FallbackMonitor:
         self.y = y
         self.width = width
         self.height = height
+        self.name = "fallback"
 
 
-def get_target_monitor(index=None):
-    """Return the monitor object for the requested display index.
+def _match_monitor_by_name(monitors, name):
+    """Return the first monitor whose name contains ``name`` (case-insensitive).
 
-    Resolution order: explicit ``index`` arg → ``VLM_GUI_DISPLAY`` env var → 0.
+    On Windows, ``screeninfo`` reports names like ``\\\\.\\DISPLAY1`` which
+    correspond to the display numbers shown in Windows Settings. So a config
+    value of ``"DISPLAY1"`` or just ``"1"`` will both match.
+    """
+    needle = str(name).strip().lower()
+    if not needle:
+        return None
+    for m in monitors:
+        if needle in str(getattr(m, "name", "") or "").lower():
+            return m
+    return None
+
+
+def get_target_monitor(name=None):
+    """Return the monitor object for the requested display name.
+
+    Resolution order: explicit ``name`` arg → ``VLM_GUI_DISPLAY`` env var →
+    primary monitor. ``name`` is matched as a case-insensitive substring of
+    the screeninfo monitor name (e.g. ``"DISPLAY3"`` or ``"3"`` matches
+    ``\\\\.\\DISPLAY3`` on Windows).
+
     Falls back to a virtual monitor sized from Tk's primary screen if
     ``screeninfo`` is unavailable or enumeration fails.
     """
-    if index is None:
-        env_val = os.environ.get(DISPLAY_ENV_VAR)
-        if env_val is not None:
-            try:
-                index = int(env_val)
-            except ValueError:
-                logger.warning(
-                    "Invalid %s=%r; using display 0", DISPLAY_ENV_VAR, env_val)
-                index = 0
-        else:
-            index = 0
-    
-    print(f"Getting target monitor for index {index} (env {DISPLAY_ENV_VAR}={os.environ.get(DISPLAY_ENV_VAR)})")
+    if name is None:
+        name = os.environ.get(DISPLAY_ENV_VAR)
 
     try:
         from screeninfo import get_monitors  # pylint: disable=C0415
         monitors = get_monitors()
         if not monitors:
             raise RuntimeError("screeninfo returned no monitors")
-        if index < 0 or index >= len(monitors):
+
+        if name is not None and str(name).strip() != "":
+            match = _match_monitor_by_name(monitors, name)
+            if match is not None:
+                return match
+            available = [getattr(m, "name", "?") for m in monitors]
             logger.warning(
-                "Display index %d out of range (0..%d); using 0",
-                index, len(monitors) - 1)
-            index = 0
-        return monitors[index]
+                "Display name %r not found in monitors %s; using primary",
+                name, available)
+
+        for m in monitors:
+            if getattr(m, "is_primary", False):
+                return m
+        return monitors[0]
     except Exception as exc:  # pylint: disable=W0718
         logger.warning("screeninfo unavailable (%s); using primary screen", exc)
         import tkinter as tk  # pylint: disable=C0415

@@ -25,17 +25,17 @@ class VLMInputGUI:
     AREA_COLORS = AREA_COLORS
     PALETTE = PALETTE
 
-    def __init__(self, root, display_index=None):
+    def __init__(self, root, display_name=None):
         self.root = root
         self.root.title("✨ VLM Block Manipulation ✨")
 
         # Resolve target monitor and place window on it before going fullscreen
-        monitor = get_target_monitor(display_index)
+        monitor = get_target_monitor(display_name)
         self.screen_w = int(monitor.width)
         self.screen_h = int(monitor.height)
         self.root.geometry(
             f"{self.screen_w}x{self.screen_h}+{int(monitor.x)}+{int(monitor.y)}")
-        print(f"GUI: Placing window on monitor {display_index} at ({monitor.x}, {monitor.y}) with size ({monitor.width}x{monitor.height})")
+        print(f"GUI: Placing window on monitor {display_name!r} ({getattr(monitor, 'name', '?')}) at ({monitor.x}, {monitor.y}) with size ({monitor.width}x{monitor.height})")
         self.root.update_idletasks()
         #self.root.attributes("-fullscreen", True)
         self.root.overrideredirect(True)
@@ -1813,7 +1813,7 @@ class VLMInputGUI:
         return self.result
 
 
-def get_user_input(display_index=None):
+def get_user_input(display_name=None):
     """
     Display the wizard GUI and return user selection.
 
@@ -1836,7 +1836,7 @@ def get_user_input(display_index=None):
         Returns None if user cancels.
     """
     root = tk.Tk()
-    app = VLMInputGUI(root, display_index=display_index)
+    app = VLMInputGUI(root, display_name=display_name)
     root.mainloop()
     return app.get_result()
 
@@ -1856,7 +1856,7 @@ def run_app(config, initial_gui=None, run_once=False):
     from ..orchestrator import VLMOrchestrator  # pylint: disable=C0415
 
     root = tk.Tk()
-    app = VLMInputGUI(root, display_index=config.display_index)
+    app = VLMInputGUI(root, display_name=config.display_name)
 
     def runner(events, gui_cfg):
         orch = VLMOrchestrator(config, gui_config=gui_cfg, events=events)

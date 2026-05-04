@@ -60,9 +60,13 @@ class Config:
     require_human_review: bool = True
 
     # ----- Display / monitor selection -----
-    # Index into screeninfo.get_monitors() for the wizard GUI and review
-    # dialogs. None falls back to the VLM_GUI_DISPLAY env var, then 0.
-    display_index: Optional[int] = 1
+    # Name of the target monitor for the wizard GUI and review dialogs.
+    # Matched as a case-insensitive substring against screeninfo monitor
+    # names. On Windows these look like "\\.\DISPLAY1", "\\.\DISPLAY2", ...
+    # which correspond to the display numbers in Windows Settings, so values
+    # like "DISPLAY3" or just "3" both work. None falls back to the
+    # VLM_GUI_DISPLAY env var, then the primary monitor.
+    display_name: Optional[str] = "DISPLAY2"
 
     # ----- Continuous loop -----
     cycle_delay_seconds: float = 2.0
@@ -73,8 +77,8 @@ class Config:
     def __post_init__(self):
         # Propagate display selection to env var so submodules (GUI, human
         # review dialogs) pick it up via display_utils.get_target_monitor().
-        if self.display_index is not None:
-            os.environ["VLM_GUI_DISPLAY"] = str(self.display_index)
+        if self.display_name is not None:
+            os.environ["VLM_GUI_DISPLAY"] = str(self.display_name)
 
 
 class State(Enum):
