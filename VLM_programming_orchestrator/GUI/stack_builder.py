@@ -148,6 +148,28 @@ class StackBuilder:
 
         original_slot = self.block_in_slot[dropped_color]
 
+        # Click (no drag): toggle between pool and first available slot
+        if not getattr(dropped_block, "was_dragged", False):
+            if original_slot is not None:
+                # Click on a stacked block -> return it to the pool
+                if self.slot_contents.get(original_slot) == dropped_color:
+                    del self.slot_contents[original_slot]
+                self.block_in_slot[dropped_color] = None
+                home = self.pool_positions[dropped_color]
+                dropped_block.move_to(home[0], home[1])
+            else:
+                # Click on a pool block -> add to first empty slot (if any)
+                empty_slot = None
+                for i in range(self.MAX_STACK):
+                    if i not in self.slot_contents:
+                        empty_slot = i
+                        break
+                if empty_slot is not None:
+                    dropped_block.move_to(self.slot_x, self.slots[empty_slot])
+                    self.block_in_slot[dropped_color] = empty_slot
+                    self.slot_contents[empty_slot] = dropped_color
+            return
+
         # Check if dropped on a stack slot
         target_slot = None
         for i, slot_y in enumerate(self.slots):

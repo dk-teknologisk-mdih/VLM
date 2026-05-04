@@ -60,6 +60,9 @@ class DraggableBlock:
             canvas.tag_bind(item, "<Leave>", self._on_leave)
 
         self.drag_data = {"x": 0, "y": 0}
+        self.was_dragged = False
+        self._press_x = 0
+        self._press_y = 0
         self.on_drop_callback: Callable = None
         self.on_drag_callback: Callable = None
 
@@ -78,8 +81,11 @@ class DraggableBlock:
     def _on_press(self, event):
         """Store initial position for drag."""
         self.is_dragging = True
+        self.was_dragged = False
         self.drag_data["x"] = event.x
         self.drag_data["y"] = event.y
+        self._press_x = event.x
+        self._press_y = event.y
         # Raise all elements
         for item in [self.shadow, self.rect, self.shine, self.text_shadow, self.text]:
             self.canvas.tag_raise(item)
@@ -95,6 +101,9 @@ class DraggableBlock:
             self.canvas.move(item, dx, dy)
         self.drag_data["x"] = event.x
         self.drag_data["y"] = event.y
+        # Mark as a real drag once the pointer has moved beyond a small threshold
+        if (abs(event.x - self._press_x) > 3 or abs(event.y - self._press_y) > 3):
+            self.was_dragged = True
         if self.on_drag_callback:
             self.on_drag_callback(self, event.x, event.y)
 
