@@ -66,7 +66,6 @@ Plan a stacking operation where you:
 Any time we either pick up or place down a block, include a single approach and retract point above (Z-axis) the target location before and after the target location to avoid collisions
 The Z-axis is the depth direction, so for example if the block is at depth 500 mm, the approach point could be at depth 300 mm (200 mm above the block)
 Remember to consider the height of the stack as you place each block, each block height is 40 mm.
-The robot grasps on the top surface of the object, and the target location is bottom surface of the stack, so remember to account for the height of the block when placing at the target location.  
 
 Return a YAML array with the stacking plan:
 - step: 1
