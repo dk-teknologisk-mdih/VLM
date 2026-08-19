@@ -166,17 +166,15 @@ MODULE LLM_Host
     !*****************************************************
     PROC handle_load(string filename)
         VAR string full_path;
-
-        ! If a module is already loaded, unload it first
-        IF module_is_loaded THEN
-            unload_current_module;
-        ENDIF
-
         full_path := MODULE_DIR + filename;
-        loaded_file_path := full_path;
+
+        ! Belt-and-suspenders: try to unload any prior copy
+        ensure_unloaded full_path;
+        module_is_loaded := FALSE;
 
         TPWrite "LLM Host: Loading " + full_path;
         Load \Dynamic, full_path \CheckRef;
+        loaded_file_path := full_path;
         module_is_loaded := TRUE;
         TPWrite "LLM Host: Load OK";
         send_response "LOAD_OK";
@@ -210,6 +208,10 @@ MODULE LLM_Host
         ELSEIF ERRNO = ERR_IOERROR THEN
             TPWrite "LLM Host: I/O error reading file";
             send_response "LOAD_ERR:IO_ERROR";
+            module_is_loaded := FALSE;
+            RETURN;
+        ELSE
+            send_response "LOAD_ERR:ERRNO_" + NumToStr(ERRNO, 0);
             module_is_loaded := FALSE;
             RETURN;
         ENDIF
@@ -273,6 +275,18 @@ MODULE LLM_Host
         IF ERRNO = ERR_UNLOAD THEN
             TPWrite "LLM Host: Warning - could not unload module";
             module_is_loaded := FALSE;
+            TRYNEXT;
+        ENDIF
+    ENDPROC
+
+    !*****************************************************
+    ! ENSURE_UNLOADED - Attempt to unload a module, ignoring errors
+    !*****************************************************
+    PROC ensure_unloaded(string path)
+        UnLoad path;
+    ERROR
+        IF ERRNO = ERR_UNLOAD THEN
+            ! Wasn't loaded — fine, ignore
             TRYNEXT;
         ENDIF
     ENDPROC
