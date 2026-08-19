@@ -13,7 +13,7 @@ import pyrealsense2 as rs
 import yaml
 from PIL import Image, ImageTk
 
-from .constants import ALL_BLOCK_COLORS, AREA_COLORS, PALETTE
+from .constants import ALL_BLOCK_COLORS, AREA_COLORS, BLOCK_COLORS_MAP, DISPLAY_LABELS, PALETTE
 from .display_utils import get_target_monitor
 from .stack_builder import StackBuilder
 
@@ -87,6 +87,9 @@ class VLMInputGUI:
 
         # Interactive widgets
         self.stack_builder: StackBuilder = None
+
+        # Always-on-top reference window for chosen stack order
+        self.stack_reference_window = None
 
         # Result storage
         self.result = None
@@ -1521,6 +1524,7 @@ class VLMInputGUI:
         self.pipeline_thread = None
         self.pipeline_events = None
         self.result = None
+        self._close_stack_reference_window()
 
         if self.stop_btn is not None:
             self.stop_btn.config(state=tk.NORMAL, text="✕ STOP")
@@ -1658,6 +1662,10 @@ class VLMInputGUI:
     def _go_back(self):
         """Go to previous step."""
         if self.current_step > 1:
+            # Coming back from step 3 means the user wants to edit the stack
+            # again -> hide the reference window so it doesn't show stale info.
+            if self.task_var.get() == "stack" and self.current_step == 3:
+                self._close_stack_reference_window()
             self._show_step(self.current_step - 1)
 
     def _go_next(self):
@@ -1670,6 +1678,8 @@ class VLMInputGUI:
                 tkinter.messagebox.showwarning(
                     "Warning", "Please drag at least 2 blocks into the stack before confirming.")
                 return
+            # Show small always-on-top reference window with the chosen stack order
+            self._show_stack_reference_window(stack_order)
         if self.current_step < self.total_steps:
             self._show_step(self.current_step + 1)
 
@@ -1709,7 +1719,7 @@ class VLMInputGUI:
                             color_bgr = (0, 255, 255)  # Detected: cyan
                             thickness = 3
                         box = cv2.boxPoints(rect)
-                        # box = np.int32(box)
+                        box = np.intp(box)
                         cv2.drawContours(
                             display_image, [box], 0, color_bgr, thickness)
                         # Label at center
@@ -1778,6 +1788,138 @@ class VLMInputGUI:
         except Exception:
             pass
 
+    # ------------------------------------------------------------------
+    # Always-on-top stack reference window
+    # ------------------------------------------------------------------
+    def _show_stack_reference_window(self, stack_order):
+        """Show a small always-on-top window in the top-right of the screen
+        displaying the chosen stack order (bottom -> top) for reference."""
+        # Replace any existing reference window
+        self._close_stack_reference_window()
+
+        if not stack_order:
+            return
+
+        block_w = 150
+        block_h = 36
+        padding = 8
+        header_h = 28
+        win_w = block_w + padding * 2
+        win_h = header_h + len(stack_order) * (block_h + 4) + padding * 2
+
+        # Position at top-right of the GUI's monitor
+        x = self.screen_w - win_w - 20
+        y = 20
+        # If the GUI was placed on a non-primary monitor, account for offset
+        try:
+            # geometry of root -> "WxH+X+Y"
+            geom = self.root.geometry()
+            plus = geom.split("+")
+            if len(plus) >= 3:
+                root_x = int(plus[1])
+                root_y = int(plus[2])
+                x = root_x + self.screen_w - win_w - 20
+                y = root_y + 20
+        except Exception:
+            pass
+
+        win = tk.Toplevel(self.root)
+        win.title("Stack Order")
+        win.overrideredirect(True)
+        win.attributes("-topmost", True)
+        try:
+            win.attributes("-alpha", 0.95)
+        except Exception:
+            pass
+        win.configure(bg=PALETTE["bg_dark"])
+        win.geometry(f"{win_w}x{win_h}+{x}+{y}")
+
+        # Outer accent border
+        border = tk.Frame(win, bg=PALETTE["accent_cyan"])
+        border.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
+        inner = tk.Frame(border, bg=PALETTE["bg_dark"])
+        inner.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+
+        # Header with title + close button
+        header = tk.Frame(inner, bg=PALETTE["bg_mid"])
+        header.pack(fill=tk.X)
+        tk.Label(
+            header, text="📚 STACK ORDER",
+            font=("Arial", 9, "bold"),
+            fg=PALETTE["accent_cyan"], bg=PALETTE["bg_mid"], padx=6, pady=4,
+        ).pack(side=tk.LEFT)
+        tk.Button(
+            header, text="✕", command=self._close_stack_reference_window,
+            font=("Arial", 8, "bold"), fg=PALETTE["text_bright"],
+            bg=PALETTE["bg_mid"], activebackground="#ff6b6b",
+            activeforeground="white", relief=tk.FLAT, bd=0, padx=4, pady=0,
+            cursor="hand2",
+        ).pack(side=tk.RIGHT)
+
+        # Allow dragging the window by the header
+        def _start_move(event):
+            win._drag_x = event.x
+            win._drag_y = event.y
+
+        def _do_move(event):
+            nx = win.winfo_x() + event.x - win._drag_x
+            ny = win.winfo_y() + event.y - win._drag_y
+            win.geometry(f"+{nx}+{ny}")
+
+        for w in (header, ):
+            w.bind("<Button-1>", _start_move)
+            w.bind("<B1-Motion>", _do_move)
+
+        # Body: blocks listed from TOP -> BOTTOM (visually top is the top of the stack)
+        body = tk.Frame(inner, bg=PALETTE["bg_dark"])
+        body.pack(fill=tk.BOTH, expand=True, padx=padding, pady=(4, padding))
+
+        n = len(stack_order)
+        # stack_order is bottom -> top; render top first
+        for visual_idx, color in enumerate(reversed(stack_order)):
+            stack_pos = n - visual_idx  # 1=bottom ... n=top
+            colors = BLOCK_COLORS_MAP.get(color, {})
+            fill = colors.get("fill", "#888888")
+            shadow = colors.get("shadow", "#444444")
+            label_text = DISPLAY_LABELS.get(color, color.upper())
+            position_label = "TOP" if stack_pos == n else (
+                "BTM" if stack_pos == 1 else f"#{stack_pos}")
+
+            row = tk.Frame(body, bg=PALETTE["bg_dark"])
+            row.pack(fill=tk.X, pady=2)
+
+            # Use a small canvas to draw a stylised block
+            c = tk.Canvas(row, width=block_w, height=block_h,
+                          bg=PALETTE["bg_dark"], highlightthickness=0)
+            c.pack()
+            c.create_rectangle(2, 4, block_w - 2, block_h - 2,
+                               fill=shadow, outline="")
+            c.create_rectangle(2, 2, block_w - 2, block_h - 4,
+                               fill=fill, outline=PALETTE["text_bright"], width=1)
+            # Block color name
+            c.create_text(block_w // 2, block_h // 2,
+                          text=label_text,
+                          fill=PALETTE["text_bright"],
+                          font=("Arial", 10, "bold"))
+            # Position tag (TOP / BTM / #n)
+            c.create_text(10, block_h // 2, text=position_label,
+                          anchor=tk.W,
+                          fill=PALETTE["accent_yellow"],
+                          font=("Arial", 7, "bold"))
+
+        self.stack_reference_window = win
+
+    def _close_stack_reference_window(self):
+        """Destroy the stack reference window if it exists."""
+        win = getattr(self, "stack_reference_window", None)
+        if win is not None:
+            try:
+                win.destroy()
+            except Exception:
+                pass
+            self.stack_reference_window = None
+
+
     def _on_close(self):
         """Handle window close event."""
         # If a pipeline cycle is active, ask it to stop and wait briefly.
@@ -1787,6 +1929,7 @@ class VLMInputGUI:
             self.pipeline_thread.join(timeout=2.0)
         self.animation_running = False
         self._stop_camera()
+        self._close_stack_reference_window()
         self._cancel_all_after()
         self.result = None
         self.root.quit()
