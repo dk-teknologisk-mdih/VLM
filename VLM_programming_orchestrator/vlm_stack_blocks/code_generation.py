@@ -50,6 +50,10 @@ def extract_code_block(text):
     """Strip ```rapid / ``` fences from an LLM response. Returns the raw code."""
     if not text:
         return text
+    
+    # Remove em-dashes and en-dashes that may be used as fences instead of backticks
+    text = text.replace("—", "-").replace("–", "-")
+
     m = re.search(r"```(?:[a-zA-Z0-9_+-]*)\n(.*?)```", text, flags=re.DOTALL)
     if m:
         return m.group(1).strip()
