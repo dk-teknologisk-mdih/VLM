@@ -98,6 +98,12 @@ def plan_stacking_trajectory(
     # Generate trajectory plan
     trajectory_prompt = build_trajectory_prompt(
         blocks, target_location, object_to_stack, where_to_stack, stack_order)
+
+    prompt_path = detector.ensure_output_dir("2_trajectory_prompt.txt")
+    with open(prompt_path, "w", encoding="utf-8") as f:
+        f.write(trajectory_prompt)
+    print(f"Trajectory prompt saved to: {prompt_path}")
+
     stacking_plan_pixel = detector.detect_objects(
         image, trajectory_prompt, save_path="2_stacking_plan_pixel.yaml")
 
