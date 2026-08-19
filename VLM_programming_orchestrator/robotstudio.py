@@ -6,6 +6,7 @@ RobotStudio automation module using pywinauto.
 import logging
 import time
 from enum import Enum
+import subprocess
 
 import pyperclip
 from pywinauto.application import Application
@@ -254,6 +255,7 @@ class RobotStudioAutomation:
             start_btn.click_input()
 
             logger.info("Simulation started.")
+            self._set_touch_input_enabled(False)
             return True
         except Exception as e:
             logger.error(f"Could not start simulation: {e}")
@@ -268,17 +270,78 @@ class RobotStudioAutomation:
             return True
 
         try:
-            self.change_tab(RobotStudioTabs.SIMULATION)
+            # self.change_tab(RobotStudioTabs.SIMULATION)
             stop_btn = self.main_window.child_window(
                 title="CmdBarCtl_SimulationStop", control_type="Button")
             stop_btn.set_focus()
             stop_btn.click_input()
 
             logger.info("Simulation stopped.")
+
+            try:
+                self.main_window.minimize()
+                logger.info("RobotStudio window minimized.")
+            except Exception as e:
+                logger.warning(f"Could not minimize RobotStudio window: {e}")
+
             return True
         except Exception as e:
             logger.error(f"Could not stop simulation: {e}")
             return False
+        finally:
+            # Always re-enable touch, even if stopping the sim failed, so the
+            # user is never left with a dead touchscreen.
+            self._set_touch_input_enabled(True)
+
+    # ------------------------------------------------------------------
+    # Touchscreen lockout helpers
+    # ------------------------------------------------------------------
+    def _set_touch_input_enabled(self, enabled: bool) -> None:
+        """
+        Enable or disable HID touchscreen devices via PowerShell PnP cmdlets.
+
+        Matches devices whose FriendlyName contains
+        `config.touch_device_filter` (case-insensitive). Requires the host
+        process to run as Administrator; otherwise the call is a no-op and
+        a warning is logged.
+        """
+        if not getattr(self.config, "disable_touch_during_simulation", False):
+            return
+
+        device_filter = getattr(
+            self.config, "touch_device_filter", "touch screen")
+        action = "Enable-PnpDevice" if enabled else "Disable-PnpDevice"
+        # -Status OK avoids touching already-disabled devices on enable=False,
+        # and avoids re-enabling unrelated error-state devices on enable=True.
+        status_filter = "Error" if enabled else "OK"
+        ps_script = (
+            f"$ErrorActionPreference='Stop';"
+            f"Get-PnpDevice -PresentOnly -Status {status_filter} | "
+            f"Where-Object {{ $_.FriendlyName -like '*{device_filter}*' }} | "
+            f"{action} -Confirm:$false"
+        )
+
+        try:
+            result = subprocess.run(
+                ["powershell.exe", "-NoProfile", "-NonInteractive",
+                 "-Command", ps_script],
+                capture_output=True, text=True, timeout=15, check=False,
+            )
+            if result.returncode != 0:
+                logger.warning(
+                    f"Touch input {'enable' if enabled else 'disable'} "
+                    f"failed (rc={result.returncode}); "
+                    f"stderr={result.stderr.strip()}. "
+                    "Run the orchestrator as Administrator to control "
+                    "the touchscreen."
+                )
+            else:
+                logger.info(
+                    f"Touch input {'enabled' if enabled else 'disabled'} "
+                    f"(filter='{device_filter}')."
+                )
+        except Exception as e:
+            logger.warning(f"Could not toggle touch input: {e}")
 
     def wait_for_simulation_complete(self, timeout: float = 60*5) -> tuple[bool, str]:
         """

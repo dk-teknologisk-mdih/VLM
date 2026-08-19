@@ -36,7 +36,7 @@ class Config:
 
     # ----- File paths -----
     local_output_dir: Path = Path("./generated_modules")
-    ftp_shared_dir: Path = Path("C:\\Users\\sem\\Documents\\AIMatters\\FTP_RobotPrograms")
+    ftp_shared_dir: Path = Path("C:/ftp_share")
     module_filename: str = "generated_task.mod"
 
     vlm_output_dir: Path = Path("VLM_output")
@@ -54,7 +54,16 @@ class Config:
     use_robotstudio_validation: bool = True
     robotstudio_window_title: str = "AIMatters_stacking - RobotStudio"
     controller_id: str = "15000-500064"
-    module_name: str = "generated_task"
+    module_name: str = "MainModule"
+
+    # ----- Touchscreen lockout during simulation -----
+    # When True, the HID touchscreen device(s) matching `touch_device_filter`
+    # are disabled while a RobotStudio simulation is running and re-enabled
+    # when it stops. Requires the process to run elevated (Administrator),
+    # otherwise the PowerShell call silently fails and touch stays enabled.
+    disable_touch_during_simulation: bool = True
+    # Case-insensitive substring matched against PnP device FriendlyName.
+    touch_device_filter: str = "touch screen"
 
     # ----- Human review -----
     require_human_review: bool = True
