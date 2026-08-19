@@ -1,123 +1,343 @@
-MODULE CubeStacker
-    ! Predefined data objects are assumed to exist in another module,
-    ! but are listed here for clarity.
-    !
-    ! PERS robtarget Home := ... ;
-    ! PERS robtarget Cuboid0 := ... ;
-    ! PERS robtarget Cuboid1 := ... ;
-    ! PERS robtarget Cuboid2 := ... ;
-    ! PERS robtarget Stack := ... ;
-    ! PERS tooldata tool_gripper := ... ;
-    ! CONST string Cfg_Gripper_Signal := "do_Gripper"; ! Example name
+MODULE MainModule
 
-    
-    ! Gripper signal alias. The name "do_Gripper" must be configured
-    ! in the I/O system and mapped to physical DO4.
-    VAR signaldo do_Gripper;
+    ! ---------------------------------------------------------------
+    ! Constants and declarations (module level, before any procedures)
+    ! ---------------------------------------------------------------
 
-    !===================================================================
-    ! PROC PickAndPlace
-    ! Picks a cube from a specified position and places it at the
-    ! target stack position with a given vertical offset.
-    !
-    ! IN: robtarget PickPos - The position to pick the cube from.
-    ! IN: num StackLevel - The cube's level in the stack (0=base).
-    !===================================================================
-    PROC PickAndPlace(robtarget PickPos, num StackLevel)
-        ! Local variables for calculated positions and offsets
-        VAR robtarget ApproachPick;
-        VAR robtarget ApproachStack;
-        VAR robtarget TargetStackPos;
-        VAR num StackOffset;
-        VAR num RetreatOffset;
+    CONST string cfg_Gripper_Signal := "ABB_Scalable_IO_0_DO4";
 
-        ! Define approach/retreat distance (100 mm)
-        RetreatOffset := 100;
+    PERS tooldata tool_Gripper := [TRUE, [[0, 0, 180], [1, 0, 0, 0]], [1, [0, 0, 50], [1, 0, 0, 0], 0, 0, 0]];
 
-        ! 1. --- PICK SEQUENCE ---
+    CONST robtarget IMAGE_POSE := [[229.25, 222.98, 570.85],[0.25415, -0.66263, -0.64590, 0.28134],[0, 0, 0, 0],[9E9, 9E9, 9E9, 9E9, 9E9, 9E9]];
 
-        ! Calculate approach position relative to the tool's Z-axis.
-        ! A positive Z offset moves the robot AWAY from the pick surface along the tool axis.
-        ApproachPick := RelTool(PickPos, 0, 0, RetreatOffset);
+    ! Camera-to-tool rotation: rx=45.4336372210247, ry=358.923640885089, rz=181.447425500162
+    ! Camera-to-tool translation (m): 0.0334546475590997, 0.100292247344554, 0.0309376533673238
 
-        ! Move above the cube to be picked
-        MoveL ApproachPick, v500, fine, tool_gripper;
+    ! Top-down grasping orientation (tool pointing straight down)
+    CONST orient TOPDOWN_ORI := [0, 1, 0, 0];
 
-        ! Open gripper
-        SetDO do_Gripper, 0;
-        WaitTime 0.5;
+    VAR signaldo gripper_signal;
 
-        ! Move down to pick position
-        MoveL PickPos, v100, fine, tool_gripper;
+    ! Pose for camera-to-tool transform
+    VAR pose cam2tool;
+    VAR pose tool2cam;
+    VAR pose base2tool;
+    VAR pose base2cam;
 
-        ! Close gripper
-        SetDO do_Gripper, 1;
-        WaitTime 0.5;
-
-        ! Lift the cube straight up along the tool's Z-axis
-        MoveL ApproachPick, v100, fine, tool_gripper;
-
-
-        ! 2. --- PLACE SEQUENCE ---
-
-        ! Calculate the stack height offset. Cube height is 37 mm.
-        StackOffset := StackLevel * 37;
-
-        ! Calculate the final place position for the current cube using world Z-offset.
-        TargetStackPos := Offs(Stack, 0, 0, StackOffset);
-
-        ! Calculate the approach position above the stack relative to the tool's Z-axis.
-        ApproachStack := RelTool(TargetStackPos, 0, 0, RetreatOffset);
-
-        ! Move to the approach position above the stack
-        MoveL ApproachStack, v500, fine, tool_gripper;
-
-        ! Move down to the place position
-        MoveL TargetStackPos, v100, fine, tool_gripper;
-
-        ! Open gripper to release the cube
-        SetDO do_Gripper, 0;
-        WaitTime 0.5;
-
-        ! Retreat straight up from the stack along the tool's Z-axis
-        MoveL ApproachStack, v100, fine, tool_gripper;
-
+    ! ---------------------------------------------------------------
+    ! Gripper procedures
+    ! ---------------------------------------------------------------
+    PROC GripperClose()
+        SetDO gripper_signal, 1;
+        WaitTime 0.3;
     ENDPROC
 
-    !===================================================================
-    ! PROC main
-    ! Main entry point for the program.
-    !===================================================================
+    PROC GripperOpen()
+        SetDO gripper_signal, 0;
+        WaitTime 0.3;
+    ENDPROC
+
+    ! ---------------------------------------------------------------
+    ! Compute the camera-to-tool pose from known calibration values
+    ! ---------------------------------------------------------------
+    FUNC pose ComputeCam2Tool()
+        VAR orient rot_cam2tool;
+        VAR pos trans_cam2tool;
+        VAR pose result;
+
+        ! Rotation angles rx=45.4336372210247, ry=358.923640885089, rz=181.447425500162 (ZYX Euler)
+        rot_cam2tool := OrientZYX(181.447425500162, 358.923640885089, 45.4336372210247);
+
+        ! Translation in mm (converted from meters)
+        trans_cam2tool.x := 0.0334546475590997 * 1000;
+        trans_cam2tool.y := 0.100292247344554 * 1000;
+        trans_cam2tool.z := 0.0309376533673238 * 1000;
+
+        result.trans := trans_cam2tool;
+        result.rot := rot_cam2tool;
+        RETURN result;
+    ENDFUNC
+
+    ! ---------------------------------------------------------------
+    ! Convert a 3D camera point (in meters) to a robtarget in base frame
+    ! ---------------------------------------------------------------
+    FUNC robtarget CamPointToRobTarget(pos camPt_m)
+        VAR pos camPt_mm;
+        VAR pos basePt;
+        VAR robtarget result;
+
+        ! Step 1: Convert camera point from meters to mm
+        camPt_mm.x := camPt_m.x * 1000;
+        camPt_mm.y := camPt_m.y * 1000;
+        camPt_mm.z := camPt_m.z * 1000;
+
+        ! Step 2: Invert cam2tool to get tool2cam
+        tool2cam := PoseInv(cam2tool);
+
+        ! Step 3: Get tool pose in base from IMAGE_POSE
+        base2tool.trans := IMAGE_POSE.trans;
+        base2tool.rot := IMAGE_POSE.rot;
+
+        ! Step 4: Camera pose in robot base = T_base2tool * T_tool2cam
+        base2cam := PoseMult(base2tool, tool2cam);
+
+        ! Step 5: Transform camera point to robot base coordinates
+        basePt := PoseVect(base2cam, camPt_mm);
+
+        ! Build robtarget with top-down orientation
+        result.trans := basePt;
+        result.rot := TOPDOWN_ORI;
+        result.robconf := [0, 0, 0, 0];
+        result.extax := [9E9, 9E9, 9E9, 9E9, 9E9, 9E9];
+
+        RETURN result;
+    ENDFUNC
+
+    ! ---------------------------------------------------------------
+    ! Pick operation: approach -> close gripper at pick -> retract
+    ! ---------------------------------------------------------------
+    PROC PickAtCamPoint(pos approachPt, pos pickPt, pos retractPt)
+        VAR robtarget tApproach;
+        VAR robtarget tPick;
+        VAR robtarget tRetract;
+
+        tApproach := CamPointToRobTarget(approachPt);
+        tPick := CamPointToRobTarget(pickPt);
+        tRetract := CamPointToRobTarget(retractPt);
+
+        ! Open gripper before approach
+        GripperOpen;
+
+        ! Move to approach point
+        MoveJ tApproach, v200, z10, tool_Gripper;
+
+        ! Move linearly to pick point
+        MoveL tPick, v50, fine, tool_Gripper;
+
+        ! Close gripper to grasp
+        GripperClose;
+
+        ! Retract linearly
+        MoveL tRetract, v200, z10, tool_Gripper;
+    ENDPROC
+
+    ! ---------------------------------------------------------------
+    ! Place operation: approach -> open gripper at place -> retract
+    ! ---------------------------------------------------------------
+    PROC PlaceAtCamPoint(pos approachPt, pos placePt, pos retractPt)
+        VAR robtarget tApproach;
+        VAR robtarget tPlace;
+        VAR robtarget tRetract;
+
+        tApproach := CamPointToRobTarget(approachPt);
+        tPlace := CamPointToRobTarget(placePt);
+        tRetract := CamPointToRobTarget(retractPt);
+
+        ! Move to approach point
+        MoveJ tApproach, v200, z10, tool_Gripper;
+
+        ! Move linearly to place point
+        MoveL tPlace, v50, fine, tool_Gripper;
+
+        ! Open gripper to release
+        GripperOpen;
+
+        ! Retract linearly
+        MoveL tRetract, v200, z10, tool_Gripper;
+    ENDPROC
+
+    ! ---------------------------------------------------------------
+    ! Main procedure
+    ! ---------------------------------------------------------------
     PROC main()
-        ! All VAR, PERS, and CONST declarations specific to a procedure
-        ! must come before any other kind of code inside that procedure.
-        VAR robtarget PickTargets{3};
+        ! Local variable declarations first
+        VAR pos step1_approach;
+        VAR pos step1_pick;
+        VAR pos step1_retract;
+        VAR pos step2_approach;
+        VAR pos step2_place;
+        VAR pos step2_retract;
+        VAR pos step3_approach;
+        VAR pos step3_pick;
+        VAR pos step3_retract;
+        VAR pos step4_approach;
+        VAR pos step4_place;
+        VAR pos step4_retract;
+        VAR pos step5_approach;
+        VAR pos step5_pick;
+        VAR pos step5_retract;
+        VAR pos step6_approach;
+        VAR pos step6_place;
+        VAR pos step6_retract;
+        VAR pos step8_approach;
+        VAR pos step8_pick;
+        VAR pos step8_retract;
+        VAR pos step9_approach;
+        VAR pos step9_place;
+        VAR pos step9_retract;
+        VAR pos step10_approach;
+        VAR pos step10_pick;
+        VAR pos step10_retract;
+        VAR pos step11_approach;
+        VAR pos step11_place;
+        VAR pos step11_retract;
+        VAR pos step12_approach;
+        VAR pos step12_pick;
+        VAR pos step12_retract;
+        VAR pos step13_approach;
+        VAR pos step13_place;
+        VAR pos step13_retract;
 
-        ! Map the configured signal name to our signal variable
-        AliasIO Cfg_Gripper_Signal, do_Gripper;
+        ! Deactivate configuration checks
+        ConfJ \Off;
+        ConfL \Off;
 
-        ! Populate an array with the pick positions for easy iteration
-        PickTargets{1} := Cuboid0;
-        PickTargets{2} := Cuboid1;
-        PickTargets{3} := Cuboid2;
+        ! Setup AliasIO for the gripper signal
+        AliasIO cfg_Gripper_Signal, gripper_signal;
 
-        
-        ! Start from a safe home position
-        MoveJ Home, v1000, fine, tool_gripper;
+        ! Compute camera-to-tool transformation
+        cam2tool := ComputeCam2Tool();
 
-        ! Loop through the three cubes and stack them
-        FOR i FROM 1 TO 3 DO
-            ! Call the pick and place routine for each cube.
-            ! The stack level (i-1) determines the height:
-            ! Cube 1 (i=1) -> StackLevel 0
-            ! Cube 2 (i=2) -> StackLevel 1
-            ! Cube 3 (i=3) -> StackLevel 2
-            PickAndPlace PickTargets{i}, i - 1;
-        ENDFOR
+        ! Move to image pose first
+        MoveJ IMAGE_POSE, v200, fine, tool_Gripper;
 
-        ! Return to the home position after completing the task
-        MoveJ Home, v1000, fine, tool_gripper;
+        ! =============================================
+        ! Step 1: Pick Block 1
+        ! =============================================
+        step1_approach := [-0.0, -0.0, 0.37];
+        step1_pick := [-0.0, -0.0, 0.57];
+        step1_retract := [-0.0, -0.0, 0.37];
+        PickAtCamPoint step1_approach, step1_pick, step1_retract;
+
+        ! Return to image pose
+        MoveJ IMAGE_POSE, v200, fine, tool_Gripper;
+
+        ! =============================================
+        ! Step 2: Place Block 1
+        ! =============================================
+        step2_approach := [-0.0, 0.0, 0.37];
+        step2_place := [-0.0, 0.0, 0.53];
+        step2_retract := [-0.0, 0.0, 0.37];
+        PlaceAtCamPoint step2_approach, step2_place, step2_retract;
+
+        ! Return to image pose
+        MoveJ IMAGE_POSE, v200, fine, tool_Gripper;
+
+        ! =============================================
+        ! Step 3: Pick Block 2
+        ! =============================================
+        step3_approach := [-0.08330585062503815, -0.06182220205664635, 0.37];
+        step3_pick := [-0.08330585062503815, -0.06182220205664635, 0.57];
+        step3_retract := [-0.08330585062503815, -0.06182220205664635, 0.37];
+        PickAtCamPoint step3_approach, step3_pick, step3_retract;
+
+        ! Return to image pose
+        MoveJ IMAGE_POSE, v200, fine, tool_Gripper;
+
+        ! =============================================
+        ! Step 4: Place Block 2
+        ! =============================================
+        step4_approach := [-0.0, 0.0, 0.37];
+        step4_place := [-0.0, 0.0, 0.49];
+        step4_retract := [-0.0, 0.0, 0.37];
+        PlaceAtCamPoint step4_approach, step4_place, step4_retract;
+
+        ! Return to image pose
+        MoveJ IMAGE_POSE, v200, fine, tool_Gripper;
+
+        ! =============================================
+        ! Step 5: Pick Block 3
+        ! =============================================
+        step5_approach := [-0.01158197596669197, -0.05897224694490433, 0.37];
+        step5_pick := [-0.01158197596669197, -0.05897224694490433, 0.57];
+        step5_retract := [-0.01158197596669197, -0.05897224694490433, 0.37];
+        PickAtCamPoint step5_approach, step5_pick, step5_retract;
+
+        ! Return to image pose
+        MoveJ IMAGE_POSE, v200, fine, tool_Gripper;
+
+        ! =============================================
+        ! Step 6: Place Block 3
+        ! =============================================
+        step6_approach := [-0.0, 0.0, 0.37];
+        step6_place := [-0.0, 0.0, 0.45];
+        step6_retract := [-0.0, 0.0, 0.37];
+        PlaceAtCamPoint step6_approach, step6_place, step6_retract;
+
+        ! Return to image pose
+        MoveJ IMAGE_POSE, v200, fine, tool_Gripper;
+
+        ! =============================================
+        ! Step 7: Wait 5 seconds
+        ! =============================================
+        WaitTime 5;
+
+        ! =============================================
+        ! Step 8: Pick Block 3
+        ! =============================================
+        step8_approach := [-0.0, 0.0, 0.37];
+        step8_pick := [-0.0, 0.0, 0.45];
+        step8_retract := [-0.0, 0.0, 0.37];
+        PickAtCamPoint step8_approach, step8_pick, step8_retract;
+
+        ! Return to image pose
+        MoveJ IMAGE_POSE, v200, fine, tool_Gripper;
+
+        ! =============================================
+        ! Step 9: Place Block 3
+        ! =============================================
+        step9_approach := [-0.01158197596669197, -0.05897224694490433, 0.37];
+        step9_place := [-0.01158197596669197, -0.05897224694490433, 0.53];
+        step9_retract := [-0.01158197596669197, -0.05897224694490433, 0.37];
+        PlaceAtCamPoint step9_approach, step9_place, step9_retract;
+
+        ! Return to image pose
+        MoveJ IMAGE_POSE, v200, fine, tool_Gripper;
+
+        ! =============================================
+        ! Step 10: Pick Block 2
+        ! =============================================
+        step10_approach := [-0.0, 0.0, 0.37];
+        step10_pick := [-0.0, 0.0, 0.49];
+        step10_retract := [-0.0, 0.0, 0.37];
+        PickAtCamPoint step10_approach, step10_pick, step10_retract;
+
+        ! Return to image pose
+        MoveJ IMAGE_POSE, v200, fine, tool_Gripper;
+
+        ! =============================================
+        ! Step 11: Place Block 2
+        ! =============================================
+        step11_approach := [-0.08330585062503815, -0.06182220205664635, 0.37];
+        step11_place := [-0.08330585062503815, -0.06182220205664635, 0.53];
+        step11_retract := [-0.08330585062503815, -0.06182220205664635, 0.37];
+        PlaceAtCamPoint step11_approach, step11_place, step11_retract;
+
+        ! Return to image pose
+        MoveJ IMAGE_POSE, v200, fine, tool_Gripper;
+
+        ! =============================================
+        ! Step 12: Pick Block 1
+        ! =============================================
+        step12_approach := [-0.0, 0.0, 0.37];
+        step12_pick := [-0.0, 0.0, 0.53];
+        step12_retract := [-0.0, 0.0, 0.37];
+        PickAtCamPoint step12_approach, step12_pick, step12_retract;
+
+        ! Return to image pose
+        MoveJ IMAGE_POSE, v200, fine, tool_Gripper;
+
+        ! =============================================
+        ! Step 13: Place Block 1
+        ! =============================================
+        step13_approach := [-0.0, -0.0, 0.37];
+        step13_place := [-0.0, -0.0, 0.53];
+        step13_retract := [-0.0, -0.0, 0.37];
+        PlaceAtCamPoint step13_approach, step13_place, step13_retract;
+
+        ! Return to image pose
+        MoveJ IMAGE_POSE, v200, fine, tool_Gripper;
 
     ENDPROC
-    
+
 ENDMODULE
