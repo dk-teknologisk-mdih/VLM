@@ -36,7 +36,7 @@ class Config:
 
     # ----- File paths -----
     local_output_dir: Path = Path("./generated_modules")
-    ftp_shared_dir: Path = Path("C:/ftp_share")
+    ftp_shared_dir: Path = Path("C:\\Users\\sem\\Documents\\AIMatters\\FTP_RobotPrograms")
     module_filename: str = "generated_task.mod"
 
     vlm_output_dir: Path = Path("VLM_output")
