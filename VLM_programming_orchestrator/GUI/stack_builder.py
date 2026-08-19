@@ -9,7 +9,7 @@ from .draggable_block import DraggableBlock
 class StackBuilder:
     """Visual stack builder: drag blocks from pool into 4 stack slots."""
 
-    MAX_STACK = 4
+    MAX_STACK = 3
 
     def __init__(self, parent, width=340, height=480):
         self.frame = tk.Frame(parent, bg=PALETTE["bg_dark"])
