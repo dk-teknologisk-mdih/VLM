@@ -2,9 +2,9 @@
 
 import numpy as np
 
+from ..vision.registry import get_detector_backend
 from .detection import (add_depth_to_detections, detect_blocks,
                         detect_target_location)
-from .detector import GeminiRoboticsDetector
 from .trajectory import (build_trajectory_prompt, convert_plan_to_3d,
                          extract_waypoints_for_visualization)
 from .utils import print_summary, save_detections, save_stacking_plan
@@ -15,7 +15,8 @@ def plan_stacking_trajectory(
     base_url,
     object_to_stack="red block",
     where_to_stack="the middle of the white paper",
-    config=None
+    config=None,
+    vision_backend="gemini_realsense",
 ):
     """
     Plan a trajectory for stacking objects on top of each other.
@@ -31,6 +32,7 @@ def plan_stacking_trajectory(
             - objects_to_manipulate: list (e.g., ['red block', 'blue block', 'green block'])
             - target_position: tuple (y, x) normalized coordinates (0-1000)
             - target_location: str description
+        vision_backend (str): Name of the registered vision/detector backend to use.
 
     Returns:
         dict: Contains stacking_plan_3d, blocks, target_location, and metadata
@@ -53,8 +55,10 @@ def plan_stacking_trajectory(
     brightness_target = config.get('brightness_target', 20) if config else 20
 
     # Initialize detector and capture image
-    detector = GeminiRoboticsDetector(
-        api_key, exposure=exposure, contrast=contrast, brightness_target=brightness_target)
+    detector = get_detector_backend(
+        vision_backend, api_key,
+        exposure=exposure, contrast=contrast, brightness_target=brightness_target,
+    )
     image, depth_frame, depth_intrinsic = detector.capture_realsense_image(
         "0_raw_realsense_capture.png")
     image_size = image.size

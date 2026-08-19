@@ -1,5 +1,8 @@
 """
 Robot connection management for the VLM programming orchestrator.
+
+Implements the RobotExecutor interface (see robots/base.py) for the ABB
+robot backend, using the custom TCP protocol implemented by LLM_Host.mod.
 """
 # pylint: disable=W1203, W0718
 
@@ -7,7 +10,7 @@ import logging
 import socket
 from typing import Optional
 
-from .config import Config
+from ...config import Config
 
 logger = logging.getLogger("orchestrator")
 
@@ -25,6 +28,10 @@ class RobotConnection:
         self.config = config
         self.sock: Optional[socket.socket] = None
         self.sock_file = None
+
+    def is_connected(self) -> bool:
+        """Whether the TCP socket to the robot is currently open."""
+        return self.sock is not None
 
     def connect(self) -> bool:
         """Connect to the robot's TCP server and wait for READY."""

@@ -1,5 +1,8 @@
 """
 RobotStudio automation module using pywinauto.
+
+Implements the SyntaxVerifier, Simulator and ErrorDescriber interfaces
+(see robots/base.py) for the ABB robot backend.
 """
 # pylint: disable=W1203, W0718, C0301
 
@@ -11,7 +14,7 @@ import pyperclip
 from pywinauto.application import Application
 from pywinauto.controls.uia_controls import ListItemWrapper
 
-from .config import Config
+from ...config import Config
 
 logger = logging.getLogger("orchestrator")
 
@@ -40,7 +43,11 @@ class RobotStudioAutomation:
         self.app = None
         self.main_window = None
 
-    def connect_to_robotstudio(self) -> bool:
+    def is_connected(self) -> bool:
+        """Whether we currently hold a live connection to RobotStudio."""
+        return self.app is not None
+
+    def connect(self) -> bool:
         """Attach to a running RobotStudio instance."""
 
         try:
@@ -79,7 +86,7 @@ class RobotStudioAutomation:
             logger.error(f"Could not switch to {tab_name} tab: {e}")
             return False
 
-    def paste_code_and_apply(self, code: str) -> tuple[bool, str]:
+    def verify(self, code: str) -> tuple[bool, str]:
         """
         Paste code into the RAPID editor and click Apply.
         Returns (syntax_ok, error_message).
@@ -315,3 +322,7 @@ class RobotStudioAutomation:
         logger.warning(
             f"Simulation did not complete within {elapsed:.1f}s (timeout).")
         return False, "Simulation did not complete within the timeout period."
+
+    def describe_error(self, raw_error: str) -> str:
+        """RobotStudio's output-pane text is already human-readable; pass through."""
+        return raw_error

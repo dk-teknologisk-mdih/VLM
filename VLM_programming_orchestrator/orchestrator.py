@@ -23,16 +23,13 @@ import time
 
 from .config import Config, State
 from .human_review import ask_human_review_with_feedback, ask_skip_validation
+from .llm.registry import get_codegen_backend
 from .pipeline_events import PipelineEvents, QueueLogHandler
-from .robot_connection import RobotConnection
-from .robotstudio import RobotStudioAutomation
+from .robots.registry import get_robot_backend
 
 # Late-imported (inside methods) to avoid pulling the GUI / VLM deps unless used:
 #   from GUI_VLM_input import get_user_input
-#   from vlm_stack_blocks import (plan_stacking_trajectory,
-#                                 call_claude_for_robot_code,
-#                                 call_claude_to_fix_code,
-#                                 extract_code_block)
+#   from vlm_stack_blocks import plan_stacking_trajectory, extract_code_block
 
 logger = logging.getLogger("orchestrator")
 
@@ -65,8 +62,8 @@ class VLMOrchestrator:
         self.error_message: str = ""
         self.attempt: int = 0
 
-        self.robot = RobotConnection(config)
-        self.robotstudio = RobotStudioAutomation(config)
+        self.robot_backend = get_robot_backend(config.robot_type, config)
+        self.codegen_backend = get_codegen_backend(config.llm_backend, config)
 
         config.local_output_dir.mkdir(parents=True, exist_ok=True)
         try:
@@ -151,7 +148,8 @@ class VLMOrchestrator:
             return
         logger.info("Running VLM trajectory planning...")
         result = plan_stacking_trajectory(
-            self.config.api_key, self.config.base_url, config=self.gui_config
+            self.config.api_key, self.config.base_url, config=self.gui_config,
+            vision_backend=self.config.vision_backend,
         )
         if not result:
             self.error_message = "VLM trajectory planning returned no result."
@@ -162,9 +160,7 @@ class VLMOrchestrator:
 
     def _state_generate_code(self):
         # Late import to avoid pulling LLM deps until this step
-        from .vlm_stack_blocks import (  # pylint: disable=C0415
-            call_llm_for_robot_code, call_llm_to_fix_code,
-            extract_code_block)
+        from .vlm_stack_blocks import extract_code_block  # pylint: disable=C0415
         self.attempt += 1
         if self.attempt > self.config.max_retry_attempts:
             logger.error("Max retry attempts reached.")
@@ -176,8 +172,7 @@ class VLMOrchestrator:
         )
 
         if self.attempt == 1:
-            generated, prompt = call_llm_for_robot_code(
-                self.config.base_url,
+            generated, prompt = self.codegen_backend.generate_code(
                 self.stacking_plan_3d,
                 robot_type=self.config.robot_type,
                 code_language=self.config.code_language,
@@ -187,8 +182,7 @@ class VLMOrchestrator:
             )
             self.current_prompt = prompt
         else:
-            generated = call_llm_to_fix_code(
-                self.config.base_url,
+            generated = self.codegen_backend.fix_code(
                 self.current_raw_code or self.current_code,
                 self.error_message,
                 self.current_prompt,
@@ -211,8 +205,8 @@ class VLMOrchestrator:
     def _state_save_module(self):
         local_path = self.config.local_output_dir / self.config.module_filename
         try:
-            # Replace main() with run_task() in the saved code, since the robot expects a run_task entry point
-            local_path.write_text(self.current_code.replace("main()", "run_task()"), encoding="utf-8")
+            prepared_code = self.robot_backend.module_preparer.prepare(self.current_code)
+            local_path.write_text(prepared_code, encoding="utf-8")
             logger.info(f"Module saved to {local_path}")
         except IOError as e:
             self.error_message = f"Failed to save module: {e}"
@@ -226,45 +220,46 @@ class VLMOrchestrator:
             self.state = State.TRANSFER_TO_ROBOT
 
     def _state_validate(self):
-        if not self.robotstudio.app:
-            if not self.robotstudio.connect_to_robotstudio():
+        verifier = self.robot_backend.syntax_verifier
+        if not verifier.is_connected():
+            if not verifier.connect():
                 if self.events is not None:
                     skip = self.events.request_skip_validation()
                 else:
                     skip = ask_skip_validation()
                 if skip:
                     logger.warning(
-                        "RobotStudio not available. User chose to skip validation.")
+                        "Robot backend not available. User chose to skip validation.")
                     self.state = State.TRANSFER_TO_ROBOT
                 else:
                     logger.error(
-                        "RobotStudio not available. User chose to abort.")
-                    self.error_message = "RobotStudio not available and user declined to skip validation."
+                        "Robot backend not available. User chose to abort.")
+                    self.error_message = "Robot backend not available and user declined to skip validation."
                     self.state = State.ERROR
                 return
 
-        syntax_ok, error_msg = self.robotstudio.paste_code_and_apply(
-            self.current_code)
+        syntax_ok, error_msg = verifier.verify(self.current_code)
         if syntax_ok:
             logger.info("Syntax validation passed.")
             self.state = State.SIMULATE
         else:
             logger.warning(f"Syntax errors: {error_msg}")
-            self.error_message = error_msg
+            self.error_message = self.robot_backend.error_describer.describe_error(error_msg)
             self.state = State.FIX_SYNTAX_ERRORS
 
     def _state_fix_syntax(self):
         self.state = State.GENERATE_CODE
 
     def _state_simulate(self):
-        if not self.robotstudio.start_simulation():
+        simulator = self.robot_backend.simulator
+        if not simulator.start_simulation():
             self.error_message = "Failed to start simulation."
             logger.error(self.error_message)
             self.state = State.ERROR
             return
 
-        success, errors = self.robotstudio.wait_for_simulation_complete()
-        self.robotstudio.stop_simulation()
+        success, errors = simulator.wait_for_simulation_complete()
+        simulator.stop_simulation()
         if success:
             logger.info("Simulation completed successfully.")
             if self.config.require_human_review:
@@ -273,7 +268,10 @@ class VLMOrchestrator:
                 self.state = State.TRANSFER_TO_ROBOT
         else:
             logger.warning(f"Simulation failed: {errors}")
-            self.error_message = f"Simulation error: {errors}"
+            self.error_message = (
+                f"Simulation error: "
+                f"{self.robot_backend.error_describer.describe_error(errors)}"
+            )
             self.state = State.FIX_SYNTAX_ERRORS
 
     def _state_human_review(self):
@@ -306,14 +304,15 @@ class VLMOrchestrator:
             self.state = State.ERROR
 
     def _state_send_load(self):
-        if not self.robot.sock:
-            if not self.robot.connect():
+        executor = self.robot_backend.executor
+        if not executor.is_connected():
+            if not executor.connect():
                 self.error_message = "Cannot connect to robot."
                 logger.error(self.error_message)
                 self.state = State.ERROR
                 return
 
-        success, message = self.robot.load_module(self.config.module_filename)
+        success, message = executor.load_module(self.config.module_filename)
         if success:
             self.state = State.SEND_START
             return
@@ -327,7 +326,7 @@ class VLMOrchestrator:
             self.state = State.ERROR
 
     def _state_send_start(self):
-        success, message = self.robot.start_execution()
+        success, message = self.robot_backend.executor.start_execution()
         if success:
             self.state = State.CLEANUP
         else:
@@ -343,7 +342,7 @@ class VLMOrchestrator:
     def shutdown(self):
         """Clean up resources."""
         logger.info("Shutting down orchestrator...")
-        self.robot.disconnect()
+        self.robot_backend.executor.disconnect()
 
 
 def run_continuous(config: Config, gui_config: dict | None = None):

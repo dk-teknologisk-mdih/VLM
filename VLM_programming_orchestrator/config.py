@@ -30,6 +30,10 @@ class Config:
     robot_type: str = "ABB"
     code_language: str = "Rapid"
 
+    # ----- Swappable backends (see robots/, llm/, vision/ registries) -----
+    llm_backend: str = "claude_proxy"
+    vision_backend: str = "gemini_realsense"
+
     # ----- RAG-accessible filenames (referenced by name only, not read) -----
     task_description_file: str = "ABB_task_description_VLM.txt"
     best_practices_file: str = "ABB_Best_Practices.txt"

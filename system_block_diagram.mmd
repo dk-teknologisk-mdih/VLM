@@ -1,0 +1,32 @@
+---
+config:
+  layout: dagre
+---
+flowchart LR
+ subgraph robot["Robot-specific operations"]
+        n2["Syntax<br>Verification"]
+        n4["Simulation<br>Verification"]
+        n6["Describe error<br>as prompt"]
+        n5["Execute Robot"]
+  end
+    A["Define/Detect Objects"] --> B["Task description<br>as prompt"]
+    B --> n1["LLM Code<br>Generation"]
+    n1 --> n2
+    n2 --> n4
+    n4 -- Visual Error --> n6
+    n4 --> n5
+    n2 -. Skip Simulation .-> n5
+    n6 --> n7["LLM<br>Fix Code"]
+    n2 -- Syntax Error --> n7
+    n7 --> n2
+
+     n2:::robotNode
+     n4:::robotNode
+     n6:::robotNode
+     n5:::robotNode
+     A:::generalNode
+     B:::generalNode
+     n1:::generalNode
+     n7:::generalNode
+    classDef robotNode fill:#f0fdfa,stroke:#2dd4bf,stroke-width:2px
+    classDef generalNode fill:#eef2ff,stroke:#818cf8,stroke-width:1px
