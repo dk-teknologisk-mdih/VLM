@@ -26,7 +26,7 @@ class GeminiRoboticsDetector:
     def __init__(
         self,
         api_key,
-        base_url="https://yoda.localdom.net:8443/api-proxy/api",
+        base_url="https://yoda.teknologisk.dk/public/api-gateway/gemini/",
         exposure=450,
         contrast=0,
         brightness_target=20
@@ -352,7 +352,7 @@ class GeminiRoboticsDetector:
         # Make the request to the proxy
         url = f"{self.base_url}/v1beta/models/{self.model_id}:generateContent"
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "x-goog-api-key": f"{self.api_key}",
             "Content-Type": "application/json",
         }
 
