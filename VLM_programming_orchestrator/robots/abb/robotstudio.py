@@ -303,6 +303,15 @@ class RobotStudioAutomation:
     # ------------------------------------------------------------------
     # Touchscreen lockout helpers
     # ------------------------------------------------------------------
+    @staticmethod
+    def _is_process_elevated() -> bool:
+        """Return True if the current process has Administrator rights."""
+        try:
+            import ctypes  # pylint: disable=C0415
+            return bool(ctypes.windll.shell32.IsUserAnAdmin())
+        except Exception:
+            return False
+
     def _set_touch_input_enabled(self, enabled: bool) -> None:
         """
         Enable or disable HID touchscreen devices via PowerShell PnP cmdlets.
@@ -313,6 +322,20 @@ class RobotStudioAutomation:
         a warning is logged.
         """
         if not getattr(self.config, "disable_touch_during_simulation", False):
+            return
+
+        # Short-circuit when not elevated: Disable-PnpDevice always fails
+        # without admin and its stderr is noisy. Warn once per instance.
+        if not self._is_process_elevated():
+            if not getattr(self, "_touch_admin_warned", False):
+                logger.warning(
+                    "Touch input control skipped: process is not elevated. "
+                    "Run the orchestrator as Administrator to disable the "
+                    "touchscreen during simulation, or set "
+                    "config.disable_touch_during_simulation = False to "
+                    "silence this warning."
+                )
+                self._touch_admin_warned = True
             return
 
         device_filter = getattr(
