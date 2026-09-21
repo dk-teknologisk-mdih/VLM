@@ -1,0 +1,377 @@
+def AIMatters_container():
+  global _hidden_verificationVariable=0
+  step_count_d536339d_c3d9_4b7e_9460_883823ac925a = 0.0
+  thread Step_Counter_Thread_e268a5c5_f278_4afe_a107_ab2dab6ba99e():
+    while (True):
+      step_count_d536339d_c3d9_4b7e_9460_883823ac925a = step_count_d536339d_c3d9_4b7e_9460_883823ac925a + 1.0
+      sync()
+    end
+  end
+  run Step_Counter_Thread_e268a5c5_f278_4afe_a107_ab2dab6ba99e()
+  set_standard_analog_input_domain(0, 1)
+  set_standard_analog_input_domain(1, 1)
+  set_tool_analog_input_domain(0, 1)
+  set_tool_analog_input_domain(1, 1)
+  set_analog_outputdomain(0, 0)
+  set_analog_outputdomain(1, 0)
+  set_input_actions_to_default()
+  tool_wrench_limit_disable()
+  set_target_payload(0.000000, [0.000000, 0.000000, 0.000000], [0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000])
+  set_tool_communication(False, 115200, 0, 1, 1.5, 3.5)
+  set_tool_output_mode(0)
+  set_tool_digital_output_mode(0, 1)
+  set_tool_digital_output_mode(1, 1)
+  set_tool_voltage(0)
+  set_gravity([0.0, 0.0, 9.82])
+  set_tcp(p[0.0,0.0,0.0,0.0,0.0,0.0])
+  motion_version_set(2)
+  set_safety_mode_transition_hardness(1)
+  $ 2 "BeforeStart"
+  $ 3 "Script: generated_task.script"
+  def run_task():
+    # Capture home joint position at program start
+    global home_joints = get_actual_joint_positions()
+  
+    # Open gripper initially
+    set_standard_digital_out(4, False)
+    sleep(0.5)
+  
+    # Capture TCP pose at home (image pose) for camera transform reference
+    global image_tcp_pose = get_actual_tcp_pose()
+    global ref_rx = image_tcp_pose[3]
+    global ref_ry = image_tcp_pose[4]
+    global ref_rz = image_tcp_pose[5]
+  
+    # Camera-to-tool transformation (from calibration)
+    global cam2tool_rx = d2r(45.4336372210247)
+    global cam2tool_ry = d2r(358.923640885089)
+    global cam2tool_rz = d2r(181.447425500162)
+    global T_cam2tool = p[0.0334546475590997, 0.100292247344554, 0.0309376533673238, cam2tool_rx, cam2tool_ry, cam2tool_rz]
+  
+    # T_base2cam = T_base2tool * inv(T_cam2tool)
+    global T_tool2cam = pose_inv(T_cam2tool)
+    global T_base2cam = pose_trans(image_tcp_pose, T_tool2cam)
+  
+    # Helper variables for transformed poses
+    global cam_pose = p[0, 0, 0, 0, 0, 0]
+    global base_point = p[0, 0, 0, 0, 0, 0]
+    global target_pose = p[0, 0, 0, 0, 0, 0]
+  
+    # ----------------------------------------------------------
+    # Step 1: Pick Block 1
+    # ----------------------------------------------------------
+    # Open gripper
+    set_standard_digital_out(4, False)
+    sleep(0.5)
+    # Approach
+    cam_pose = p[0.07608438283205032, -0.02086055278778076, 0.37, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Pick
+    cam_pose = p[0.07608438283205032, -0.02086055278778076, 0.57, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Close gripper
+    set_standard_digital_out(4, True)
+    sleep(0.5)
+    # Retract
+    cam_pose = p[0.07608438283205032, -0.02086055278778076, 0.37, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Return to home
+    movej(home_joints, a=1.4, v=1.05)
+  
+    # ----------------------------------------------------------
+    # Step 2: Place Block 1
+    # ----------------------------------------------------------
+    # Approach
+    cam_pose = p[0.0, 0.0, 0.37, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Place
+    cam_pose = p[0.0, 0.0, 0.57, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Open gripper
+    set_standard_digital_out(4, False)
+    sleep(0.5)
+    # Retract
+    cam_pose = p[0.0, 0.0, 0.37, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Return to home
+    movej(home_joints, a=1.4, v=1.05)
+  
+    # ----------------------------------------------------------
+    # Step 3: Pick Block 2
+    # ----------------------------------------------------------
+    # Open gripper
+    set_standard_digital_out(4, False)
+    sleep(0.5)
+    # Approach
+    cam_pose = p[0.00524942809715867, 0.0030760366935282946, 0.37, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Pick
+    cam_pose = p[0.00524942809715867, 0.0030760366935282946, 0.57, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Close gripper
+    set_standard_digital_out(4, True)
+    sleep(0.5)
+    # Retract
+    cam_pose = p[0.00524942809715867, 0.0030760366935282946, 0.37, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Return to home
+    movej(home_joints, a=1.4, v=1.05)
+  
+    # ----------------------------------------------------------
+    # Step 4: Place Block 2
+    # ----------------------------------------------------------
+    # Approach
+    cam_pose = p[0.0, 0.0, 0.33, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Place
+    cam_pose = p[0.0, 0.0, 0.53, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Open gripper
+    set_standard_digital_out(4, False)
+    sleep(0.5)
+    # Retract
+    cam_pose = p[0.0, 0.0, 0.33, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Return to home
+    movej(home_joints, a=1.4, v=1.05)
+  
+    # ----------------------------------------------------------
+    # Step 5: Pick Block 3
+    # ----------------------------------------------------------
+    # Open gripper
+    set_standard_digital_out(4, False)
+    sleep(0.5)
+    # Approach
+    cam_pose = p[-0.06811027973890305, -0.02733628824353218, 0.37, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Pick
+    cam_pose = p[-0.06811027973890305, -0.02733628824353218, 0.57, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Close gripper
+    set_standard_digital_out(4, True)
+    sleep(0.5)
+    # Retract
+    cam_pose = p[-0.06811027973890305, -0.02733628824353218, 0.37, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Return to home
+    movej(home_joints, a=1.4, v=1.05)
+  
+    # ----------------------------------------------------------
+    # Step 6: Place Block 3
+    # ----------------------------------------------------------
+    # Approach
+    cam_pose = p[0.0, 0.0, 0.29, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Place
+    cam_pose = p[0.0, 0.0, 0.49, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Open gripper
+    set_standard_digital_out(4, False)
+    sleep(0.5)
+    # Retract
+    cam_pose = p[0.0, 0.0, 0.29, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Return to home
+    movej(home_joints, a=1.4, v=1.05)
+  
+    # ----------------------------------------------------------
+    # Step 7: Wait 5 seconds
+    # ----------------------------------------------------------
+    sleep(5)
+  
+    # ----------------------------------------------------------
+    # Step 8: Pick Block 3
+    # ----------------------------------------------------------
+    # Open gripper
+    set_standard_digital_out(4, False)
+    sleep(0.5)
+    # Approach
+    cam_pose = p[0.0, 0.0, 0.29, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Pick
+    cam_pose = p[0.0, 0.0, 0.49, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Close gripper
+    set_standard_digital_out(4, True)
+    sleep(0.5)
+    # Retract
+    cam_pose = p[0.0, 0.0, 0.29, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Return to home
+    movej(home_joints, a=1.4, v=1.05)
+  
+    # ----------------------------------------------------------
+    # Step 9: Place Block 3
+    # ----------------------------------------------------------
+    # Approach
+    cam_pose = p[-0.06811027973890305, -0.02733628824353218, 0.37, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Place
+    cam_pose = p[-0.06811027973890305, -0.02733628824353218, 0.57, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Open gripper
+    set_standard_digital_out(4, False)
+    sleep(0.5)
+    # Retract
+    cam_pose = p[-0.06811027973890305, -0.02733628824353218, 0.37, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Return to home
+    movej(home_joints, a=1.4, v=1.05)
+  
+    # ----------------------------------------------------------
+    # Step 10: Pick Block 2
+    # ----------------------------------------------------------
+    # Open gripper
+    set_standard_digital_out(4, False)
+    sleep(0.5)
+    # Approach
+    cam_pose = p[0.0, 0.0, 0.33, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Pick
+    cam_pose = p[0.0, 0.0, 0.53, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Close gripper
+    set_standard_digital_out(4, True)
+    sleep(0.5)
+    # Retract
+    cam_pose = p[0.0, 0.0, 0.33, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Return to home
+    movej(home_joints, a=1.4, v=1.05)
+  
+    # ----------------------------------------------------------
+    # Step 11: Place Block 2
+    # ----------------------------------------------------------
+    # Approach
+    cam_pose = p[0.00524942809715867, 0.0030760366935282946, 0.37, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Place
+    cam_pose = p[0.00524942809715867, 0.0030760366935282946, 0.57, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Open gripper
+    set_standard_digital_out(4, False)
+    sleep(0.5)
+    # Retract
+    cam_pose = p[0.00524942809715867, 0.0030760366935282946, 0.37, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Return to home
+    movej(home_joints, a=1.4, v=1.05)
+  
+    # ----------------------------------------------------------
+    # Step 12: Pick Block 1
+    # ----------------------------------------------------------
+    # Open gripper
+    set_standard_digital_out(4, False)
+    sleep(0.5)
+    # Approach
+    cam_pose = p[0.0, 0.0, 0.37, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Pick
+    cam_pose = p[0.0, 0.0, 0.57, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Close gripper
+    set_standard_digital_out(4, True)
+    sleep(0.5)
+    # Retract
+    cam_pose = p[0.0, 0.0, 0.37, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Return to home
+    movej(home_joints, a=1.4, v=1.05)
+  
+    # ----------------------------------------------------------
+    # Step 13: Place Block 1
+    # ----------------------------------------------------------
+    # Approach
+    cam_pose = p[0.07608438283205032, -0.02086055278778076, 0.37, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Place
+    cam_pose = p[0.07608438283205032, -0.02086055278778076, 0.57, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+    # Open gripper
+    set_standard_digital_out(4, False)
+    sleep(0.5)
+    # Retract
+    cam_pose = p[0.07608438283205032, -0.02086055278778076, 0.37, 0, 0, 0]
+    base_point = pose_trans(T_base2cam, cam_pose)
+    target_pose = p[base_point[0], base_point[1], base_point[2], ref_rx, ref_ry, ref_rz]
+    movel(target_pose, a=1.2, v=0.25)
+  
+    # Return to home and open gripper
+    movej(home_joints, a=1.4, v=1.05)
+    set_standard_digital_out(4, False)
+    sleep(0.5)
+  end
+  $ 4 "Robot Program"
+  $ 5 "run_task()"
+  run_task()
+end

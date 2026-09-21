@@ -1,0 +1,271 @@
+def pick_and_place_program():
+  # Camera to tool transformation
+  local cam_rx_rad = d2r(45.4336372210247)
+  local cam_ry_rad = d2r(358.923640885089)
+  local cam_rz_rad = d2r(181.447425500162)
+  local cam_rotvec = rpy2rotvec([cam_rx_rad, cam_ry_rad, cam_rz_rad])
+  local cam_to_tool = p[0.0334546475590997, 0.100292247344554, 0.0309376533673238, cam_rotvec[0], cam_rotvec[1], cam_rotvec[2]]
+
+  # Invert camera_to_tool to get tool_to_camera
+  local tool_to_cam = pose_inv(cam_to_tool)
+
+  # Robot is at image pose when program starts - capture it
+  local image_pose = get_actual_tcp_pose()
+
+  # Compute camera frame in robot base coordinates
+  # T_base_cam = T_base_tool * T_tool_cam
+  local T_base_cam = pose_trans(image_pose, tool_to_cam)
+
+  # Grasp orientation: top-down, tool Z+ points down
+  # Rotated 180 deg around base Y-axis: rotation vector = [0, 3.14159, 0]
+  local grasp_rx = 0
+  local grasp_ry = 3.14159265
+  local grasp_rz = 0
+
+  # Open gripper to start
+  set_digital_out(4, False)
+  sleep(0.5)
+
+  # --- Helper variables ---
+  local approach = p[0, 0, 0, 0, 0, 0]
+  local target = p[0, 0, 0, 0, 0, 0]
+  local retract = p[0, 0, 0, 0, 0, 0]
+  local base_pt = p[0, 0, 0, 0, 0, 0]
+
+  # ==============================
+  # Step 1: Pick yellow block
+  # ==============================
+  # Approach
+  base_pt = pose_trans(T_base_cam, p[0.07735471427440643, -0.02086055278778076, 0.37, 0, 0, 0])
+  approach = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movej(approach, a=1.4, v=1.05)
+  # Pick
+  base_pt = pose_trans(T_base_cam, p[0.07735471427440643, -0.02086055278778076, 0.57, 0, 0, 0])
+  target = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movel(target, a=1.2, v=0.25)
+  # Close gripper
+  set_digital_out(4, True)
+  sleep(0.5)
+  # Retract
+  base_pt = pose_trans(T_base_cam, p[0.07735471427440643, -0.02086055278778076, 0.37, 0, 0, 0])
+  retract = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movel(retract, a=1.2, v=0.25)
+
+  # ==============================
+  # Step 2: Place yellow block
+  # ==============================
+  # Approach
+  base_pt = pose_trans(T_base_cam, p[0.19042517244815826, -0.031442273408174515, 0.37, 0, 0, 0])
+  approach = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movej(approach, a=1.4, v=1.05)
+  # Place
+  base_pt = pose_trans(T_base_cam, p[0.19042517244815826, -0.031442273408174515, 0.57, 0, 0, 0])
+  target = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movel(target, a=1.2, v=0.25)
+  # Open gripper
+  set_digital_out(4, False)
+  sleep(0.5)
+  # Retract
+  base_pt = pose_trans(T_base_cam, p[0.19042517244815826, -0.031442273408174515, 0.37, 0, 0, 0])
+  retract = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movel(retract, a=1.2, v=0.25)
+
+  # ==============================
+  # Step 3: Pick light blue block
+  # ==============================
+  # Approach
+  base_pt = pose_trans(T_base_cam, p[0.005836295895278454, 0.0030704843811690807, 0.37, 0, 0, 0])
+  approach = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movej(approach, a=1.4, v=1.05)
+  # Pick
+  base_pt = pose_trans(T_base_cam, p[0.005836295895278454, 0.0030704843811690807, 0.57, 0, 0, 0])
+  target = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movel(target, a=1.2, v=0.25)
+  # Close gripper
+  set_digital_out(4, True)
+  sleep(0.5)
+  # Retract
+  base_pt = pose_trans(T_base_cam, p[0.005836295895278454, 0.0030704843811690807, 0.37, 0, 0, 0])
+  retract = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movel(retract, a=1.2, v=0.25)
+
+  # ==============================
+  # Step 4: Place light blue block
+  # ==============================
+  # Approach
+  base_pt = pose_trans(T_base_cam, p[0.19042517244815826, -0.031442273408174515, 0.33, 0, 0, 0])
+  approach = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movej(approach, a=1.4, v=1.05)
+  # Place
+  base_pt = pose_trans(T_base_cam, p[0.19042517244815826, -0.031442273408174515, 0.53, 0, 0, 0])
+  target = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movel(target, a=1.2, v=0.25)
+  # Open gripper
+  set_digital_out(4, False)
+  sleep(0.5)
+  # Retract
+  base_pt = pose_trans(T_base_cam, p[0.19042517244815826, -0.031442273408174515, 0.33, 0, 0, 0])
+  retract = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movel(retract, a=1.2, v=0.25)
+
+  # ==============================
+  # Step 5: Pick dark blue block
+  # ==============================
+  # Approach
+  base_pt = pose_trans(T_base_cam, p[-0.06702559441328049, -0.02713855728507042, 0.37, 0, 0, 0])
+  approach = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movej(approach, a=1.4, v=1.05)
+  # Pick
+  base_pt = pose_trans(T_base_cam, p[-0.06702559441328049, -0.02713855728507042, 0.57, 0, 0, 0])
+  target = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movel(target, a=1.2, v=0.25)
+  # Close gripper
+  set_digital_out(4, True)
+  sleep(0.5)
+  # Retract
+  base_pt = pose_trans(T_base_cam, p[-0.06702559441328049, -0.02713855728507042, 0.37, 0, 0, 0])
+  retract = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movel(retract, a=1.2, v=0.25)
+
+  # ==============================
+  # Step 6: Place dark blue block
+  # ==============================
+  # Approach
+  base_pt = pose_trans(T_base_cam, p[0.19042517244815826, -0.031442273408174515, 0.29, 0, 0, 0])
+  approach = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movej(approach, a=1.4, v=1.05)
+  # Place
+  base_pt = pose_trans(T_base_cam, p[0.19042517244815826, -0.031442273408174515, 0.49, 0, 0, 0])
+  target = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movel(target, a=1.2, v=0.25)
+  # Open gripper
+  set_digital_out(4, False)
+  sleep(0.5)
+  # Retract
+  base_pt = pose_trans(T_base_cam, p[0.19042517244815826, -0.031442273408174515, 0.29, 0, 0, 0])
+  retract = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movel(retract, a=1.2, v=0.25)
+
+  # ==============================
+  # Step 7: Wait 5 seconds
+  # ==============================
+  sleep(5)
+
+  # ==============================
+  # Step 8: Pick dark blue block
+  # ==============================
+  # Approach
+  base_pt = pose_trans(T_base_cam, p[0.19042517244815826, -0.031442273408174515, 0.29, 0, 0, 0])
+  approach = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movej(approach, a=1.4, v=1.05)
+  # Pick
+  base_pt = pose_trans(T_base_cam, p[0.19042517244815826, -0.031442273408174515, 0.49, 0, 0, 0])
+  target = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movel(target, a=1.2, v=0.25)
+  # Close gripper
+  set_digital_out(4, True)
+  sleep(0.5)
+  # Retract
+  base_pt = pose_trans(T_base_cam, p[0.19042517244815826, -0.031442273408174515, 0.29, 0, 0, 0])
+  retract = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movel(retract, a=1.2, v=0.25)
+
+  # ==============================
+  # Step 9: Place dark blue block
+  # ==============================
+  # Approach
+  base_pt = pose_trans(T_base_cam, p[-0.06702559441328049, -0.02713855728507042, 0.37, 0, 0, 0])
+  approach = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movej(approach, a=1.4, v=1.05)
+  # Place
+  base_pt = pose_trans(T_base_cam, p[-0.06702559441328049, -0.02713855728507042, 0.57, 0, 0, 0])
+  target = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movel(target, a=1.2, v=0.25)
+  # Open gripper
+  set_digital_out(4, False)
+  sleep(0.5)
+  # Retract
+  base_pt = pose_trans(T_base_cam, p[-0.06702559441328049, -0.02713855728507042, 0.37, 0, 0, 0])
+  retract = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movel(retract, a=1.2, v=0.25)
+
+  # ==============================
+  # Step 10: Pick light blue block
+  # ==============================
+  # Approach
+  base_pt = pose_trans(T_base_cam, p[0.19042517244815826, -0.031442273408174515, 0.33, 0, 0, 0])
+  approach = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movej(approach, a=1.4, v=1.05)
+  # Pick
+  base_pt = pose_trans(T_base_cam, p[0.19042517244815826, -0.031442273408174515, 0.53, 0, 0, 0])
+  target = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movel(target, a=1.2, v=0.25)
+  # Close gripper
+  set_digital_out(4, True)
+  sleep(0.5)
+  # Retract
+  base_pt = pose_trans(T_base_cam, p[0.19042517244815826, -0.031442273408174515, 0.33, 0, 0, 0])
+  retract = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movel(retract, a=1.2, v=0.25)
+
+  # ==============================
+  # Step 11: Place light blue block
+  # ==============================
+  # Approach
+  base_pt = pose_trans(T_base_cam, p[0.005836295895278454, 0.0030704843811690807, 0.37, 0, 0, 0])
+  approach = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movej(approach, a=1.4, v=1.05)
+  # Place
+  base_pt = pose_trans(T_base_cam, p[0.005836295895278454, 0.0030704843811690807, 0.57, 0, 0, 0])
+  target = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movel(target, a=1.2, v=0.25)
+  # Open gripper
+  set_digital_out(4, False)
+  sleep(0.5)
+  # Retract
+  base_pt = pose_trans(T_base_cam, p[0.005836295895278454, 0.0030704843811690807, 0.37, 0, 0, 0])
+  retract = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movel(retract, a=1.2, v=0.25)
+
+  # ==============================
+  # Step 12: Pick yellow block
+  # ==============================
+  # Approach
+  base_pt = pose_trans(T_base_cam, p[0.19042517244815826, -0.031442273408174515, 0.37, 0, 0, 0])
+  approach = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movej(approach, a=1.4, v=1.05)
+  # Pick
+  base_pt = pose_trans(T_base_cam, p[0.19042517244815826, -0.031442273408174515, 0.57, 0, 0, 0])
+  target = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movel(target, a=1.2, v=0.25)
+  # Close gripper
+  set_digital_out(4, True)
+  sleep(0.5)
+  # Retract
+  base_pt = pose_trans(T_base_cam, p[0.19042517244815826, -0.031442273408174515, 0.37, 0, 0, 0])
+  retract = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movel(retract, a=1.2, v=0.25)
+
+  # ==============================
+  # Step 13: Place yellow block
+  # ==============================
+  # Approach
+  base_pt = pose_trans(T_base_cam, p[0.07735471427440643, -0.02086055278778076, 0.37, 0, 0, 0])
+  approach = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movej(approach, a=1.4, v=1.05)
+  # Place
+  base_pt = pose_trans(T_base_cam, p[0.07735471427440643, -0.02086055278778076, 0.57, 0, 0, 0])
+  target = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movel(target, a=1.2, v=0.25)
+  # Open gripper
+  set_digital_out(4, False)
+  sleep(0.5)
+  # Retract
+  base_pt = pose_trans(T_base_cam, p[0.07735471427440643, -0.02086055278778076, 0.37, 0, 0, 0])
+  retract = p[base_pt[0], base_pt[1], base_pt[2], grasp_rx, grasp_ry, grasp_rz]
+  movel(retract, a=1.2, v=0.25)
+
+  # Return to image pose
+  movej(image_pose, a=1.4, v=1.05)
+end
+pick_and_place_program()

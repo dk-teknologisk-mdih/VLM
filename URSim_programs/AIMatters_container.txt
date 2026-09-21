@@ -1,0 +1,6 @@
+ Program
+   Variables Setup
+   BeforeStart
+     Script: generated_task.script
+   Robot Program
+     run_task()
