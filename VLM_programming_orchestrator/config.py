@@ -54,7 +54,9 @@ class Config:
     robot_port: int = 1025
     socket_timeout: float = 120.0
 
-    # ----- RobotStudio UI automation -----
+    # ----- Robot validation and simulation -----
+    # Despite the legacy name, this gates the selected backend's verifier and
+    # simulator: RobotStudio for ABB, URScript validation and URSim for UR.
     use_robotstudio_validation: bool = True
     robotstudio_window_title: str = "AIMatters_stacking - RobotStudio"
     controller_id: str = "15000-500064"
@@ -68,6 +70,21 @@ class Config:
     disable_touch_during_simulation: bool = True
     # Case-insensitive substring matched against PnP device FriendlyName.
     touch_device_filter: str = "touch screen"
+
+    # ----- UR / URSim -----
+    ursim_ip: str = "127.0.0.1"
+    ur_dashboard_port: int = 29999
+    ur_dashboard_timeout: float = 10.0
+    # Host dir bind-mounted into the URSim container's programs folder.
+    ursim_programs_dir: Path = Path("./URSim_programs")
+    # Static Polyscope program (user-authored once) with an Import-Script-File
+    # node that loads `module_filename` from the shared programs folder.
+    ur_container_program: str = "AIMatters_container.urp"
+    # Real UR controller IP; blank disables real-robot execution.
+    ur_robot_ip: str = ""
+    ur_validate_image: str = "universalrobots/ursim_e-series"
+    ur_validate_robot_model: str = "UR5"
+    ur_validate_timeout: int = 10
 
     # ----- Human review -----
     require_human_review: bool = True

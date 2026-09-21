@@ -53,15 +53,25 @@ def main():
     parser.add_argument("--once", action="store_true",
                         help="Run a single cycle instead of looping.")
     parser.add_argument("--no-robotstudio", action="store_true",
-                        help="Skip RobotStudio validation and simulation.")
+                        help="Skip validation and simulation for the selected robot backend.")
     parser.add_argument("--no-human-review", action="store_true",
                         help="Skip the human review step.")
     parser.add_argument("--robot-ip", type=str,
                         default=None, help="Override robot IP.")
     parser.add_argument("--robot-port", type=int,
                         default=None, help="Override robot port.")
+    parser.add_argument("--ur-dashboard-port", type=int, default=None,
+                        help="Override UR Dashboard Server port (UR backend).")
     parser.add_argument("--ftp-dir", type=str, default=None,
                         help="Override FTP shared directory.")
+    parser.add_argument("--robot-type", type=str, default=None,
+                        help="Robot backend to use, e.g. ABB or UR.")
+    parser.add_argument("--code-language", type=str, default=None,
+                        help="Code language to generate, e.g. Rapid or URScript.")
+    parser.add_argument("--ursim-ip", type=str, default=None,
+                        help="Override URSim host IP (UR backend).")
+    parser.add_argument("--ur-robot-ip", type=str, default=None,
+                        help="Override real UR controller IP (UR backend).")
     args = parser.parse_args()
 
     # Build the single unified config
