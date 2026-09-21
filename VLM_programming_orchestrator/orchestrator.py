@@ -206,6 +206,7 @@ class VLMOrchestrator:
         local_path = self.config.local_output_dir / self.config.module_filename
         try:
             prepared_code = self.robot_backend.module_preparer.prepare(self.current_code)
+            self.current_code = prepared_code
             local_path.write_text(prepared_code, encoding="utf-8")
             logger.info(f"Module saved to {local_path}")
         except IOError as e:
