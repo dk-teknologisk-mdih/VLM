@@ -74,18 +74,33 @@ def main():
                         help="Override real UR controller IP (UR backend).")
     args = parser.parse_args()
 
-    # Build the single unified config
-    config = Config()
+    # Build the single unified config. Robot-specific defaults are selected
+    # during construction so UR does not inherit ABB generation settings.
+    config = Config(robot_type=args.robot_type or "ABB")
     if args.no_robotstudio:
         config.use_robotstudio_validation = False
     if args.no_human_review:
         config.require_human_review = False
     if args.robot_ip:
-        config.robot_ip = args.robot_ip
+        if config.robot_type == "UR":
+            config.ur_robot_ip = args.robot_ip
+        else:
+            config.robot_ip = args.robot_ip
     if args.robot_port:
-        config.robot_port = args.robot_port
+        if config.robot_type == "UR":
+            config.ur_dashboard_port = args.robot_port
+        else:
+            config.robot_port = args.robot_port
     if args.ftp_dir:
         config.ftp_shared_dir = Path(args.ftp_dir)
+    if args.code_language:
+        config.code_language = args.code_language
+    if args.ursim_ip:
+        config.ursim_ip = args.ursim_ip
+    if args.ur_robot_ip:
+        config.ur_robot_ip = args.ur_robot_ip
+    if args.ur_dashboard_port:
+        config.ur_dashboard_port = args.ur_dashboard_port
 
     if not config.api_key or not config.base_url:
         print("ERROR: API_KEY and BASE_URL must be set (e.g. via .env).",

@@ -105,6 +105,17 @@ class Config:
     task_description: Optional[str] = None
 
     def __post_init__(self):
+        self.robot_type = self.robot_type.strip().upper()
+        if self.robot_type == "UR":
+            if self.code_language == "Rapid":
+                self.code_language = "URScript"
+            if self.task_description_file == "ABB_task_description_VLM.txt":
+                self.task_description_file = "UR_task_description.pdf"
+            if self.best_practices_file == "ABB_Best_Practices.txt":
+                self.best_practices_file = "UR_Best_Practices.docx"
+            if self.module_filename == "generated_task.mod":
+                self.module_filename = "generated_task.script"
+
         # Propagate display selection to env var so submodules (GUI, human
         # review dialogs) pick it up via display_utils.get_target_monitor().
         if self.display_name is not None:
