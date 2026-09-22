@@ -30,9 +30,21 @@ class Config:
     robot_type: str = "ABB"
     code_language: str = "Rapid"
 
-    # ----- Swappable backends (see robots/, llm/, vision/ registries) -----
+    # ----- Swappable backends (see robots/, llm/, vision/, tasks/ registries) -----
     llm_backend: str = "claude_proxy"
     vision_backend: str = "gemini_realsense"
+
+    # ----- Task selection (see tasks/ registry) -----
+    # e.g. "stack_blocks" or "path_inspection". Determines what the VLM
+    # detects/plans and how the LLM prompt is built; robot/LLM/vision
+    # backends stay unaware of which task is active.
+    task_type: str = "stack_blocks"
+
+    # Offline-editable prompt template overrides for the active task. When
+    # set, the task backend loads these instead of its bundled default
+    # `prompts/*.txt` template. None means "use the task's own default".
+    vlm_prompt_file: Optional[Path] = None
+    llm_prompt_file: Optional[Path] = None
 
     # ----- RAG-accessible filenames (referenced by name only, not read) -----
     task_description_file: str = "ABB_task_description_VLM.txt"
@@ -96,7 +108,7 @@ class Config:
     # which correspond to the display numbers in Windows Settings, so values
     # like "DISPLAY3" or just "3" both work. None falls back to the
     # VLM_GUI_DISPLAY env var, then the primary monitor.
-    display_name: Optional[str] = "DISPLAY2"
+    display_name: Optional[str] = "XWAYLAND0"
 
     # ----- Continuous loop -----
     cycle_delay_seconds: float = 2.0

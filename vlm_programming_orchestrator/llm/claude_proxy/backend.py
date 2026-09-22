@@ -21,7 +21,6 @@ from requests_sse import (EventSource, InvalidContentTypeError,
                           InvalidStatusCodeError)
 
 from ...config import Config
-from ...vlm_stack_blocks.code_generation import build_stacking_prompt
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -99,42 +98,24 @@ def _stream_llm_response(llm_api_url, messages, events=None):
     return "".join(buffer_parts)
 
 
-def call_llm_for_robot_code(
-    url,
-    stacking_plan_3d,
-    robot_type="ABB",
-    code_language="Rapid",
-    task_description_file="ABB_task_description_VLM.txt",
-    best_practices_file="ABB_Best_Practices.txt",
-    events=None,
-):
-    """Generate robot control code from a 3D stacking plan.
+def call_llm_for_robot_code(url, prompt, events=None):
+    """Generate robot control code from an already-built prompt.
 
-    Returns (generated_text, prompt). `prompt` can be passed back to
-    `call_llm_to_fix_code` so the fix request carries the original context.
     `events` is forwarded to the SSE streamer for live GUI updates.
     """
-    prompt = build_stacking_prompt(
-        stacking_plan_3d,
-        robot_type=robot_type,
-        code_language=code_language,
-        task_description_file=task_description_file,
-        best_practices_file=best_practices_file,
-    )
-
     print("\n=== Calling LLM for robot code generation ===")
     generated = _stream_llm_response(
         url, [{"role": "user", "content": prompt}], events=events
     )
     if generated is None:
-        return None, prompt
+        return None
 
     os.makedirs("VLM_output", exist_ok=True)
     output_path = os.path.join("VLM_output", "4_robot_control_code.txt")
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(generated)
     print(f"Generated robot code saved to: {output_path}")
-    return generated, prompt
+    return generated
 
 
 def call_llm_to_fix_code(
@@ -183,24 +164,8 @@ class ClaudeProxyCodeGen:
     def __init__(self, config: Config):
         self.config = config
 
-    def generate_code(
-        self,
-        stacking_plan_3d,
-        robot_type=None,
-        code_language=None,
-        task_description_file=None,
-        best_practices_file=None,
-        events=None,
-    ):
-        return call_llm_for_robot_code(
-            self.config.base_url,
-            stacking_plan_3d,
-            robot_type=robot_type or self.config.robot_type,
-            code_language=code_language or self.config.code_language,
-            task_description_file=task_description_file or self.config.task_description_file,
-            best_practices_file=best_practices_file or self.config.best_practices_file,
-            events=events,
-        )
+    def generate_code(self, prompt, events=None):
+        return call_llm_for_robot_code(self.config.base_url, prompt, events=events)
 
     def fix_code(
         self,

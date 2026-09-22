@@ -1,13 +1,12 @@
-"""Main pipeline orchestrator for stacking trajectory planning."""
+"""Main pipeline for stacking-trajectory planning (VLM detection + planning stage)."""
 
 import numpy as np
 
-from ..vision.registry import get_detector_backend
-from .detection import (add_depth_to_detections, detect_blocks,
-                        detect_target_location)
-from .trajectory import (build_trajectory_prompt, convert_plan_to_3d,
-                         extract_waypoints_for_visualization)
-from .utils import print_summary, save_detections, save_stacking_plan
+from ...vision.registry import get_detector_backend
+from ..common import add_depth_to_detections, convert_plan_to_3d, extract_waypoints_for_visualization
+from .detection import detect_blocks, detect_target_location
+from .trajectory import build_trajectory_prompt
+from .utils import print_summary, save_detections, save_plan
 
 
 def plan_stacking_trajectory(
@@ -35,7 +34,7 @@ def plan_stacking_trajectory(
         vision_backend (str): Name of the registered vision/detector backend to use.
 
     Returns:
-        dict: Contains stacking_plan_3d, blocks, target_location, and metadata
+        dict: Contains plan_data, blocks, target_location, and metadata
     """
     # Extract config values if provided
     stack_order = None
@@ -76,7 +75,6 @@ def plan_stacking_trajectory(
             'point': [y_norm, x_norm],
             'label': f'target ({where_to_stack})'
         }
-        # print(f"\nUsing clicked target position: y={y_norm}, x={x_norm} (normalized)")
     else:
         # Detect target location from image
         target_location = detect_target_location(
@@ -108,28 +106,27 @@ def plan_stacking_trajectory(
         f.write(trajectory_prompt)
     print(f"Trajectory prompt saved to: {prompt_path}")
 
-    stacking_plan_pixel = detector.detect_objects(
+    plan_pixel = detector.detect_objects(
         image, trajectory_prompt, save_path="2_stacking_plan_pixel.yaml")
 
     # Visualize trajectory
-    all_waypoints = extract_waypoints_for_visualization(stacking_plan_pixel)
+    all_waypoints = extract_waypoints_for_visualization(plan_pixel)
     all_waypoints.extend(all_detected)
     detector.draw_points_on_image(
         image, all_waypoints, output_path="2_trajectory_with_waypoints.png")
 
     # Convert to 3D coordinates and save
-    stacking_plan_3d = convert_plan_to_3d(
-        detector, stacking_plan_pixel, image_size, depth_frame, depth_intrinsic)
-    save_stacking_plan(detector, stacking_plan_3d,
-                       "3_stacking_trajectory_plan.yaml")
+    plan_data = convert_plan_to_3d(
+        detector, plan_pixel, image_size, depth_frame, depth_intrinsic)
+    save_plan(detector, plan_data, "3_stacking_trajectory_plan.yaml")
 
     # Print summary
-    print_summary(blocks, target_location, stacking_plan_3d)
+    print_summary(blocks, target_location, plan_data)
 
     # Return all relevant data for downstream processing
     return {
-        "stacking_plan_3d": stacking_plan_3d,
-        "stacking_plan_pixel": stacking_plan_pixel,
+        "plan_data": plan_data,
+        "plan_pixel": plan_pixel,
         "blocks": blocks,
         "target_location": target_location,
         "object_to_stack": object_to_stack,

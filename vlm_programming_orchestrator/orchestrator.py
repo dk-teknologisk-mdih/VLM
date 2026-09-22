@@ -4,8 +4,8 @@
 
 Implements the full 12-step workflow as a state machine:
   1. RUN_GUI              -> get user input
-  2. PLAN_TRAJECTORY      -> VLM trajectory planning
-  3. GENERATE_CODE        -> Claude generates RAPID code (or fixes it)
+  2. PLAN_TRAJECTORY      -> VLM planning for the active task (see tasks/)
+  3. GENERATE_CODE        -> LLM generates robot code (or fixes it)
   4. SAVE_MODULE          -> write .mod file
   5. VALIDATE_IN_ROBOTSTUDIO / FIX_SYNTAX_ERRORS
   6. SIMULATE             -> start sim + wait for completion
@@ -26,10 +26,11 @@ from .human_review import ask_human_review_with_feedback, ask_skip_validation
 from .llm.registry import get_codegen_backend
 from .pipeline_events import PipelineEvents, QueueLogHandler
 from .robots.registry import get_robot_backend
+from .tasks.common import extract_code_block
+from .tasks.registry import get_task_backend
 
-# Late-imported (inside methods) to avoid pulling the GUI / VLM deps unless used:
+# Late-imported (inside methods) to avoid pulling the GUI deps unless used:
 #   from GUI_VLM_input import get_user_input
-#   from vlm_stack_blocks import plan_stacking_trajectory, extract_code_block
 
 logger = logging.getLogger("orchestrator")
 
@@ -55,7 +56,7 @@ class VLMOrchestrator:
             logger.addHandler(self._log_handler)
 
         # Runtime artefacts
-        self.stacking_plan_3d = None
+        self.plan_data = None
         self.current_prompt: str = ""
         self.current_code: str = ""        # extracted/cleaned code
         self.current_raw_code: str = ""    # raw LLM reply (with fences)
@@ -64,6 +65,7 @@ class VLMOrchestrator:
 
         self.robot_backend = get_robot_backend(config.robot_type, config)
         self.codegen_backend = get_codegen_backend(config.llm_backend, config)
+        self.task_backend = get_task_backend(config.task_type, config)
 
         config.local_output_dir.mkdir(parents=True, exist_ok=True)
         try:
@@ -83,7 +85,7 @@ class VLMOrchestrator:
 
         handlers = {
             State.RUN_GUI: self._state_run_gui,
-            State.PLAN_TRAJECTORY: self._state_plan_trajectory,
+            State.PLAN_TRAJECTORY: self._state_plan_task,
             State.GENERATE_CODE: self._state_generate_code,
             State.SAVE_MODULE: self._state_save_module,
             State.VALIDATE_IN_ROBOTSTUDIO: self._state_validate,
@@ -138,29 +140,25 @@ class VLMOrchestrator:
         logger.info(f"GUI configuration: {self.gui_config}")
         self.state = State.PLAN_TRAJECTORY
 
-    def _state_plan_trajectory(self):
-        from .vlm_stack_blocks import \
-            plan_stacking_trajectory  # pylint: disable=C0415
+    def _state_plan_task(self):
         if not self.config.api_key or not self.config.base_url:
             self.error_message = "API_KEY / BASE_URL not set in environment."
             logger.error(self.error_message)
             self.state = State.ERROR
             return
-        logger.info("Running VLM trajectory planning...")
-        result = plan_stacking_trajectory(
-            self.config.api_key, self.config.base_url, config=self.gui_config,
-            vision_backend=self.config.vision_backend,
+        logger.info(f"Running VLM planning for task {self.config.task_type!r}...")
+        result = self.task_backend.plan(
+            self.config.api_key, self.config.base_url,
+            gui_config=self.gui_config, vision_backend=self.config.vision_backend,
         )
         if not result:
-            self.error_message = "VLM trajectory planning returned no result."
+            self.error_message = "Task planning returned no result."
             self.state = State.ERROR
             return
-        self.stacking_plan_3d = result["stacking_plan_3d"]
+        self.plan_data = result["plan_data"]
         self.state = State.GENERATE_CODE
 
     def _state_generate_code(self):
-        # Late import to avoid pulling LLM deps until this step
-        from .vlm_stack_blocks import extract_code_block  # pylint: disable=C0415
         self.attempt += 1
         if self.attempt > self.config.max_retry_attempts:
             logger.error("Max retry attempts reached.")
@@ -172,15 +170,17 @@ class VLMOrchestrator:
         )
 
         if self.attempt == 1:
-            generated, prompt = self.codegen_backend.generate_code(
-                self.stacking_plan_3d,
+            prompt = self.task_backend.build_prompt(
+                self.plan_data,
                 robot_type=self.config.robot_type,
                 code_language=self.config.code_language,
                 task_description_file=self.config.task_description_file,
                 best_practices_file=self.config.best_practices_file,
-                events=self.events,
             )
             self.current_prompt = prompt
+            generated = self.codegen_backend.generate_code(
+                prompt, events=self.events,
+            )
         else:
             generated = self.codegen_backend.fix_code(
                 self.current_raw_code or self.current_code,
