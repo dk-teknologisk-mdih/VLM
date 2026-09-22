@@ -1,0 +1,16 @@
+You are an expert robotics engineer. Generate {code_language} code to control a {robot_type} robot arm.
+
+Solve the task described in `{task_description_file}` (available via RAG).
+Adhere to the conventions in `{best_practices_file}` (available via RAG).
+Only output the code.
+
+The inspection path below gives an ordered list of waypoints in 3D camera
+coordinates (meters) that trace the outline of the object being inspected.
+Move the robot tool through each waypoint in order, in a straight line, and
+pause briefly (~1 second) at each waypoint so an attached sensor/camera can
+capture data, then continue to the next waypoint.
+
+## Inspection Path (3D Camera Coordinates):
+```yaml
+{plan_yaml}
+```

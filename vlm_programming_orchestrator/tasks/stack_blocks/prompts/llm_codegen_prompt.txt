@@ -1,0 +1,17 @@
+You are an expert robotics engineer. Generate {code_language} code to control a {robot_type} robot arm.
+
+Solve the task described in `{task_description_file}` (available via RAG).
+Adhere to the conventions in `{best_practices_file}` (available via RAG).
+Only output the code.
+
+The trajectory plan below gives pick and place operations with 3D waypoints in
+camera coordinates (meters). Each step has:
+- action: "pick" or "place"
+- block: which block is being manipulated
+- trajectory: list of waypoints with [x, y, z] in the camera frame
+- description: human-readable description
+
+## Stacking Plan (3D Camera Coordinates):
+```yaml
+{plan_yaml}
+```

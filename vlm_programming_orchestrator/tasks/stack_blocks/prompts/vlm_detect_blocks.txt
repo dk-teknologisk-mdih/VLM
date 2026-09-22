@@ -1,0 +1,11 @@
+Detect each of the following objects in the image: {target_description}.
+Return the location of each object.
+
+The answer should follow the YAML format:
+- point: <point>
+  label: <label>
+- point: <point>
+  label: <label>
+
+The points are in [y, x] format normalized to 0-1000.
+Use the exact object name as the label (e.g., 'red block', 'blue block').

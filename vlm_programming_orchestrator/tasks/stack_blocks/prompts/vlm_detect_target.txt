@@ -1,0 +1,7 @@
+Detect the {where_to_stack} in the image and return its location.
+
+The answer should follow the YAML format:
+- point: <point>
+  label: <label>
+
+The point is in [y, x] format normalized to 0-1000.

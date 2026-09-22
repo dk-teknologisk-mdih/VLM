@@ -1,0 +1,14 @@
+Detect an ordered sequence of inspection waypoints tracing the outline of the {target_object} in the image.
+Return the waypoints in the order a robot arm should visit them to inspect the
+entire {target_object}, starting from one end and moving continuously along
+its structure.
+
+The answer should follow the YAML format:
+- point: <point>
+  label: <label>
+- point: <point>
+  label: <label>
+
+Points are in [y, x] format normalized to 0-1000. Use short descriptive labels
+for each waypoint describing the feature at that location (e.g., 'head_tube',
+'top_tube', 'seat_tube', 'bottom_bracket', 'chainstay', 'rear_dropout').

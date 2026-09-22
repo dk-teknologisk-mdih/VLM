@@ -68,6 +68,12 @@ def main():
                         help="Robot backend to use, e.g. ABB or UR.")
     parser.add_argument("--code-language", type=str, default=None,
                         help="Code language to generate, e.g. Rapid or URScript.")
+    parser.add_argument("--task-type", type=str, default=None,
+                        help="Task backend to use, e.g. stack_blocks or path_inspection.")
+    parser.add_argument("--vlm-prompt-file", type=str, default=None,
+                        help="Override the active task's default VLM detection prompt template.")
+    parser.add_argument("--llm-prompt-file", type=str, default=None,
+                        help="Override the active task's default LLM code-gen prompt template.")
     parser.add_argument("--ursim-ip", type=str, default=None,
                         help="Override URSim host IP (UR backend).")
     parser.add_argument("--ur-robot-ip", type=str, default=None,
@@ -95,6 +101,12 @@ def main():
         config.ftp_shared_dir = Path(args.ftp_dir)
     if args.code_language:
         config.code_language = args.code_language
+    if args.task_type:
+        config.task_type = args.task_type
+    if args.vlm_prompt_file:
+        config.vlm_prompt_file = Path(args.vlm_prompt_file)
+    if args.llm_prompt_file:
+        config.llm_prompt_file = Path(args.llm_prompt_file)
     if args.ursim_ip:
         config.ursim_ip = args.ursim_ip
     if args.ur_robot_ip:

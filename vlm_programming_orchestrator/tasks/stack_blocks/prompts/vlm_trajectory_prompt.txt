@@ -1,0 +1,46 @@
+
+You are controlling a robot arm to stack {num_blocks} blocks ({object_desc}) on top of each other.{stack_order_info}
+
+The blocks to be stacked are located at these positions:
+{blocks_info}
+
+The target stacking location is at:
+{target_info}
+
+Plan a stacking operation where you:
+1. Pick up each block one by one
+2. Stack them all at the target location: {where_to_stack} on top of each other, with the first block at the bottom and the last block on top
+3. For each pick operation, provide waypoints from the gripper starting position to the block
+4. For each place operation, provide waypoints from the picked block to the stacking location
+5. After the stacking has been completed, wait for 5 seconds and then destack the blocks back to their original positions
+
+Any time we either pick up or place down a block, include a single approach and retract point above (Z-axis) the target location before and after the target location to avoid collisions
+The Z-axis is the depth direction, so for example if the block is at depth 500 mm, the approach point could be at depth 300 mm (200 mm above the block)
+Remember to consider the height of the stack as you place each block, each block height is 40 mm.
+
+Return a YAML array with the stacking plan:
+- step: 1
+  action: pick
+  block: Block 2
+  trajectory:
+    - point: [y, x, z]
+      label: approach_point
+    - point: [y, x, z]
+      label: pick_point
+    - point: [y, x, z]
+      label: retract_point
+- step: 2
+  action: place
+  block: Block 2
+  trajectory:
+    - point: [y, x, z]
+      label: approach_point
+    - point: [y, x, z]
+      label: place_point
+    - point: [y, x, z]
+      label: retract_point
+
+IMPORTANT FORMAT RULES:
+- Points are in [y, x, z] format: y and x normalized to 0-1000, z as depth in millimeters
+- Do NOT include a description field - only step, action, block, and trajectory
+- Label waypoints: approach_point, pick_point/place_point, retract_point
