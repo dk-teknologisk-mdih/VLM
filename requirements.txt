@@ -64,3 +64,4 @@ wcwidth==0.2.14
 websockets==15.0.1
 python-dotenv==1.1.0
 screeninfo==0.8.1
+pyperclip==1.11.0
