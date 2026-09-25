@@ -108,7 +108,7 @@ class Config:
     # which correspond to the display numbers in Windows Settings, so values
     # like "DISPLAY3" or just "3" both work. None falls back to the
     # VLM_GUI_DISPLAY env var, then the primary monitor.
-    display_name: Optional[str] = "XWAYLAND0"
+    display_name: Optional[str] = "DISPLAY1"
 
     # ----- Continuous loop -----
     cycle_delay_seconds: float = 2.0
