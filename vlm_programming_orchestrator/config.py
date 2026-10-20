@@ -22,9 +22,10 @@ class Config:
     base_url: str = field(
         default_factory=lambda: os.environ.get("BASE_URL", ""))
     llm_model: str = "claude-opus-5-5"
-    vlm_model: str = "gemini-robotics-er-2-preview"
+    vlm_model: str = "gemini-3.8-flash"#"gemini-robotics-er-2-preview"
     llm_max_tokens: int = 4096
     max_retry_attempts: int = 3
+    vlm_verification_max_attempts: int = 10
 
     # ----- Robot code generation -----
     generate_robot_code: bool = True
@@ -138,6 +139,9 @@ class Config:
     task_description: Optional[str] = None
 
     def __post_init__(self):
+        if (type(self.vlm_verification_max_attempts) is not int
+            or self.vlm_verification_max_attempts < 1):
+            raise ValueError("vlm_verification_max_attempts must be a positive integer")
         self.robot_type = self.robot_type.strip().upper()
         if self.robot_type == "UR":
             if self.code_language == "Rapid":

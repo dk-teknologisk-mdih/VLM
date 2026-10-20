@@ -74,6 +74,8 @@ def main():
                         help="Override the LLM model used for robot code generation.")
     parser.add_argument("--vlm-model", type=str, default=None,
                         help="Override the VLM model used for task planning.")
+    parser.add_argument("--vlm-verification-max-attempts", type=int, default=None,
+                        help="Maximum path-inspection VLM review calls after detection (default: 3).")
     parser.add_argument("--task-type", type=str, default=None,
                         help="Task backend to use, e.g. stack_blocks or path_inspection.")
     parser.add_argument("--image-path", type=str, default=None,
@@ -99,6 +101,9 @@ def main():
     parser.add_argument("--ur-robot-ip", type=str, default=None,
                         help="Override real UR controller IP (UR backend).")
     args = parser.parse_args()
+    if (args.vlm_verification_max_attempts is not None
+            and args.vlm_verification_max_attempts < 1):
+        parser.error("--vlm-verification-max-attempts must be a positive integer")
 
     # Build the single unified config. Robot-specific defaults are selected
     # during construction so UR does not inherit ABB generation settings.
@@ -125,6 +130,8 @@ def main():
         config.llm_model = args.llm_model
     if args.vlm_model:
         config.vlm_model = args.vlm_model
+    if args.vlm_verification_max_attempts is not None:
+        config.vlm_verification_max_attempts = args.vlm_verification_max_attempts
     if args.task_type:
         config.task_type = args.task_type
     if args.image_path:

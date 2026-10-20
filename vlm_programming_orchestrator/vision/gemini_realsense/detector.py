@@ -479,7 +479,7 @@ class GeminiRoboticsDetector:
 
         for _, point_info in enumerate(points_data):
             if "point" in point_info and "label" in point_info:
-                y_norm, x_norm, _ = point_info["point"]
+                y_norm, x_norm = point_info["point"][:2]
                 label = point_info["label"]
 
                 abs_x = int(x_norm / 1000.0 * width)

@@ -19,13 +19,6 @@ Constraints:
   or accessories — only on the structural frame tubes.
 - Only include locations clearly visible in the image.
 
-Ordering:
-- Order the waypoints as a single continuous path along the frame
-  structure, starting from the top of the head tube (front of the
-  frame) and visiting each waypoint exactly once where possible.
-  When a tube dead-ends, backtrack to the nearest junction before
-  continuing to unvisited tubes.
-
 The answer should follow the YAML format:
 - point: <point>
   label: <label>

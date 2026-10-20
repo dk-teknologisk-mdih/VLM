@@ -1,0 +1,50 @@
+Order the verified inspection waypoints into one continuous traversal along the
+visible structural tubes in the attached original image. You must determine the
+order yourself, not describe an algorithm for another system to execute.
+
+Original detection criteria:
+{detection_criteria}
+
+Verified waypoints with fixed one-based IDs and normalized [y, x] coordinates:
+{waypoints_yaml}
+
+The waypoint locations and labels have already been verified. Do not add,
+remove, merge, relabel, or move them. Return their IDs, not new coordinates.
+The input list is NOT a travel order, and nearby points need not be connected.
+
+First identify ALL visible tube segments between adjacent verified waypoints.
+A segment is an undirected pair of IDs whose straight connecting line follows
+the same visible structural tube throughout. Include all visible connections,
+not just the ones convenient for your route. Do not skip intermediate
+waypoints, bends, or joints. An image-plane crossing is NOT a connection unless
+the tubes physically join there. Never bridge empty space, infer hidden tubes,
+or connect points merely because their labels or positions seem compatible.
+
+Then return a single ordered list of waypoint IDs that traverses EVERY such
+tube segment at least once and visits EVERY verified waypoint. You may repeat
+IDs and retrace segments as often as necessary to inspect branches without
+leaving the tubes. This is an open Chinese-postman-style traversal: choose the
+start and end freely to reduce travel and unnecessary retracing. Returning to
+the start is allowed but NOT required. Each consecutive pair in your order must
+be one of the declared tube segments, in either direction. Do not insert
+consecutive identical IDs. Do not omit a tube just to avoid retracing.
+
+If disconnected structures, uncertain connectivity, insufficient bend/junction
+points, or any other issue prevents a continuous tube-following traversal using
+ONLY these locations, return routable: false with an explanation. Do not repair
+the waypoints or invent connecting segments. For a single verified waypoint,
+return its ID once with an empty tube_segments list (no travel).
+
+Return ONLY a YAML mapping with these four fields. For example, three points
+connected in a line could produce:
+routable: true
+reason: "Both visible tube segments are covered without retracing."
+tube_segments:
+  - [1, 2]
+  - [2, 3]
+waypoint_order: [1, 2, 3]
+
+List each undirected segment exactly once, even if it is traversed repeatedly.
+Use actual YAML booleans and integer IDs, not quoted values. For a refusal,
+return routable: false, a nonempty reason, tube_segments: [], waypoint_order: [].
+Do not include markdown fences or prose outside the YAML mapping.

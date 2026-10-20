@@ -24,6 +24,7 @@ class PathInspectionTaskBackend:
             api_key, base_url, config=gui_config, vision_backend=vision_backend,
             vlm_model=self.config.vlm_model,
             vlm_prompt_file=self.config.vlm_prompt_file,
+            vlm_verification_max_attempts=self.config.vlm_verification_max_attempts,
             image_path=(
                 gui_config.get("image_path") if gui_config
                 else self.config.input_image_path

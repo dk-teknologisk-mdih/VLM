@@ -2,10 +2,16 @@ You are an expert robotics engineer. Generate {code_language} code to control a 
 
 Solve the following task:
 The inspection path below gives an ordered list of waypoints in 3D camera
-coordinates (meters) that trace the outline of the object being inspected.
+coordinates (meters) that follow the structural tubes of the object being inspected.
 Move the robot tool through each waypoint in order, in a straight line, and
 pause briefly (~1 second) at each waypoint so an attached sensor/camera can
 capture data, then continue to the next waypoint.
+
+Preserve the supplied sequence exactly, including EVERY repeated waypoint visit.
+Repeated visits intentionally retrace tubes to reach branches. Do not reorder,
+deduplicate, simplify, shortcut, smooth, or use corner blending between these
+waypoints. Stop at every supplied waypoint before continuing. The path may end
+at a different waypoint from its start; do not add a closing inspection move.
 
 T_base_cam: a 4×4 matrix in meters that converts points from the camera's color frame to the UR base frame.
 

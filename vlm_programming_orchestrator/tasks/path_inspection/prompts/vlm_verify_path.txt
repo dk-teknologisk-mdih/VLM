@@ -1,0 +1,36 @@
+Verify the proposed inspection waypoints against the attached original image.
+Independently inspect the image; do not assume the previous detection is correct.
+
+Original detection criteria (including the target object):
+{detection_criteria}
+
+Current proposed waypoints, in normalized [y, x] coordinates from 0 to 1000:
+{waypoints_yaml}
+
+Previous review or response-format feedback:
+{previous_feedback}
+
+Check the waypoint locations, labels, completeness, distinct physical locations,
+visibility against the original detection criteria. Remove
+incorrect or duplicate locations, add missing required locations, and correct
+coordinates when needed. Do not invent hidden structural features.
+Apply the supplied criteria rather than adding unrelated inspection points.
+Check positions only; do not evaluate or change waypoint ordering. A separate
+step will determine the traversal after these locations have been accepted.
+
+Return only a YAML mapping with these three fields:
+accepted: true
+reason: "Short explanation of the review decision"
+waypoints:
+  - point: [100, 200]
+    label: "descriptive structural feature"
+
+Use an actual YAML boolean for accepted, never a quoted string. Set accepted to
+true ONLY if the submitted waypoints are correct and need no changes; return
+the entire submitted list unchanged in that case. If ANY correction is needed,
+set accepted to false and return the COMPLETE corrected, waypoint list,
+not just changed entries. Corrections will be submitted for another review.
+Every point must have exactly two finite numbers in [y, x] order within 0-1000
+and a nonempty string label. Do not add depth values. If the image does not
+support a valid path, return accepted: false and explain why; do not accept an
+empty path. Do not include markdown fences or prose outside the YAML mapping.

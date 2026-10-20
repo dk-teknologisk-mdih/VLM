@@ -29,6 +29,7 @@ from .llm.registry import get_codegen_backend
 from .pipeline_events import PipelineEvents, QueueLogHandler
 from .robots.registry import get_robot_backend
 from .tasks.common import extract_code_block
+from .tasks.path_inspection.pipeline import WaypointOrderingError, WaypointVerificationError
 from .tasks.registry import get_task_backend
 
 # Late-imported (inside methods) to avoid pulling the GUI deps unless used:
@@ -203,10 +204,16 @@ class VLMOrchestrator:
             self.state = State.ERROR
             return
         logger.info(f"Running VLM planning for task {self.config.task_type!r}...")
-        result = self.task_backend.plan(
-            self.config.api_key, self.config.base_url,
-            gui_config=self.gui_config, vision_backend=self.config.vision_backend,
-        )
+        try:
+            result = self.task_backend.plan(
+                self.config.api_key, self.config.base_url,
+                gui_config=self.gui_config, vision_backend=self.config.vision_backend,
+            )
+        except (WaypointVerificationError, WaypointOrderingError) as error:
+            self.error_message = str(error)
+            logger.error(self.error_message)
+            self.state = State.ERROR
+            return
         if not result:
             self.error_message = "Task planning returned no result."
             self.state = State.ERROR

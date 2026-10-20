@@ -1,38 +1,126 @@
 def inspection_program():
-  # -----------------------------------------------------------
-  # T_base_cam  -  camera-colour-frame → UR-base-frame
-  # Pose p[x, y, z, rx, ry, rz] with axis-angle orientation
-  # derived from the supplied 4×4 homogeneous matrix.
-  # -----------------------------------------------------------
-  global T_base_cam = p[0.26133172, -0.21193716, 0.32093136, -1.535419, 0.016029, 0.032625]
+  # ---------------------------------------------------------------
+  # T_base_cam as a URScript pose p[x, y, z, rx, ry, rz]
+  #   Translation from column-3 of the 4x4 matrix.
+  #   Orientation: axis-angle derived from the 3x3 rotation block.
+  # ---------------------------------------------------------------
+  T_base_cam = p[0.26133171757465096, -0.21193715811891062, 0.32093135558712477, -1.534970, 0.016031, 0.032626]
+  accel = 0.5
+  vel   = 0.1
 
-  # Number of inspection waypoints
-  global n_pts = 14
+  # -- Waypoint  1 : endpoint: top of head tube  (movej for safe initial approach) --
+  target = pose_trans(T_base_cam, p[0.2885435898603318, -0.3586976932089486, 0.99, 0, 0, 0])
+  movej(target, a=1.0, v=0.5, t=0, r=0)
+  sleep(1.0)
 
-  # Waypoint coordinates in the camera colour frame (metres)
-  global cam_x = [0.3022036074970661, 0.3609416833350231, 0.06998330767258477, -0.08437489162251179, -0.2920071597008716, -0.517397450706986, -0.4012873007947452, -0.25375911031801585, -0.1485769745151625, -0.12535494453271437, -0.08437489162251179, -0.12535494453271437, 0.0563232900358505, 0.3022036074970661]
-  global cam_y = [-0.34102543723077694, -0.1643028774490608, -0.0144728811123884, 0.13535711522428412, 0.1584078838914644, 0.08925557788992333, -0.04136544455743216, -0.17967005656051438, -0.08362518711392948, -0.04136544455743216, 0.13535711522428412, -0.04136544455743216, -0.16046108267119744, -0.34102543723077694]
-  global cam_z = [0.99, 0.99, 0.99, 0.99, 0.99, 0.99, 0.99, 0.99, 0.99, 0.99, 0.99, 0.99, 0.99, 0.99]
+  # -- Waypoint  2 : joint: head tube / top tube --
+  target = pose_trans(T_base_cam, p[0.2912755933876787, -0.2926188230296982, 0.99, 0, 0, 0])
+  movel(target, a=accel, v=vel, t=0, r=0)
+  sleep(1.0)
 
-  # Motion parameters (conservative for inspection)
-  global move_vel = 0.1
-  global move_acc = 0.5
-  global dwell_time = 1.0
+  # -- Waypoint  3 : joint: head tube / down tube --
+  target = pose_trans(T_base_cam, p[0.3322556462978813, -0.2265399528504478, 0.99, 0, 0, 0])
+  movel(target, a=accel, v=vel, t=0, r=0)
+  sleep(1.0)
 
-  # --- Approach first waypoint in joint-space (safe initial move) ---
-  global pt_cam = p[cam_x[0], cam_y[0], cam_z[0], 0, 0, 0]
-  global target_pose = pose_trans(T_base_cam, pt_cam)
-  movej(target_pose, a=1.0, v=0.5)
-  sleep(dwell_time)
+  # -- Waypoint  4 : endpoint: bottom of head tube --
+  target = pose_trans(T_base_cam, p[0.33908565511624833, -0.20809933791670351, 0.99, 0, 0, 0])
+  movel(target, a=accel, v=vel, t=0, r=0)
+  sleep(1.0)
 
-  # --- Traverse remaining waypoints with linear moves ---
-  global i = 1
-  while i < n_pts:
-    pt_cam = p[cam_x[i], cam_y[i], cam_z[i], 0, 0, 0]
-    target_pose = pose_trans(T_base_cam, pt_cam)
-    movel(target_pose, a=move_acc, v=move_vel)
-    sleep(dwell_time)
-    i = i + 1
-  end
+  # -- Waypoint  5 : joint: head tube / down tube (retrace) --
+  target = pose_trans(T_base_cam, p[0.3322556462978813, -0.2265399528504478, 0.99, 0, 0, 0])
+  movel(target, a=accel, v=vel, t=0, r=0)
+  sleep(1.0)
+
+  # -- Waypoint  6 : midpoint: down tube --
+  target = pose_trans(T_base_cam, p[0.12462337821952138, -0.0421338035130048, 0.99, 0, 0, 0])
+  movel(target, a=accel, v=vel, t=0, r=0)
+  sleep(1.0)
+
+  # -- Waypoint  7 : joint: seat tube / down tube / chain stays --
+  target = pose_trans(T_base_cam, p[-0.08437489162251179, 0.14534578164672884, 0.99, 0, 0, 0])
+  movel(target, a=accel, v=vel, t=0, r=0)
+  sleep(1.0)
+
+  # -- Waypoint  8 : midpoint: chain stay --
+  target = pose_trans(T_base_cam, p[-0.36030724788454266, 0.1368938331354295, 0.99, 0, 0, 0])
+  movel(target, a=accel, v=vel, t=0, r=0)
+  sleep(1.0)
+
+  # -- Waypoint  9 : endpoint: rear axle dropout --
+  target = pose_trans(T_base_cam, p[-0.53105746834372, 0.08541378311205991, 0.99, 0, 0, 0])
+  movel(target, a=accel, v=vel, t=0, r=0)
+  sleep(1.0)
+
+  # -- Waypoint 10 : midpoint: seat stay --
+  target = pose_trans(T_base_cam, p[-0.38489527963066417, -0.05058575202430429, 0.99, 0, 0, 0])
+  movel(target, a=accel, v=vel, t=0, r=0)
+  sleep(1.0)
+
+  # -- Waypoint 11 : joint: seat stays / seat tube --
+  target = pose_trans(T_base_cam, p[-0.25239310855434244, -0.20041574836097673, 0.99, 0, 0, 0])
+  movel(target, a=accel, v=vel, t=0, r=0)
+  sleep(1.0)
+
+  # -- Waypoint 12 : midpoint: upper seat tube --
+  target = pose_trans(T_base_cam, p[-0.22917107857189425, -0.2542008752510643, 0.99, 0, 0, 0])
+  movel(target, a=accel, v=vel, t=0, r=0)
+  sleep(1.0)
+
+  # -- Waypoint 13 : endpoint: seat post insertion --
+  target = pose_trans(T_base_cam, p[-0.20594904858944618, -0.3064492842300064, 0.99, 0, 0, 0])
+  movel(target, a=accel, v=vel, t=0, r=0)
+  sleep(1.0)
+
+  # -- Waypoint 14 : midpoint: upper seat tube (retrace) --
+  target = pose_trans(T_base_cam, p[-0.22917107857189425, -0.2542008752510643, 0.99, 0, 0, 0])
+  movel(target, a=accel, v=vel, t=0, r=0)
+  sleep(1.0)
+
+  # -- Waypoint 15 : joint: seat stays / seat tube (retrace) --
+  target = pose_trans(T_base_cam, p[-0.25239310855434244, -0.20041574836097673, 0.99, 0, 0, 0])
+  movel(target, a=accel, v=vel, t=0, r=0)
+  sleep(1.0)
+
+  # -- Waypoint 16 : midpoint: mid seat tube --
+  target = pose_trans(T_base_cam, p[-0.18955702742536515, -0.11512790429240936, 0.99, 0, 0, 0])
+  movel(target, a=accel, v=vel, t=0, r=0)
+  sleep(1.0)
+
+  # -- Waypoint 17 : joint: top tube / seat tube --
+  target = pose_trans(T_base_cam, p[-0.12535494453271437, -0.02984006022384196, 0.99, 0, 0, 0])
+  movel(target, a=accel, v=vel, t=0, r=0)
+  sleep(1.0)
+
+  # -- Waypoint 18 : midpoint: lower seat tube --
+  target = pose_trans(T_base_cam, p[-0.11032892513230683, 0.045459117422280655, 0.99, 0, 0, 0])
+  movel(target, a=accel, v=vel, t=0, r=0)
+  sleep(1.0)
+
+  # -- Waypoint 19 : joint: seat tube / down tube / chain stays (retrace) --
+  target = pose_trans(T_base_cam, p[-0.08437489162251179, 0.14534578164672884, 0.99, 0, 0, 0])
+  movel(target, a=accel, v=vel, t=0, r=0)
+  sleep(1.0)
+
+  # -- Waypoint 20 : midpoint: lower seat tube (retrace) --
+  target = pose_trans(T_base_cam, p[-0.11032892513230683, 0.045459117422280655, 0.99, 0, 0, 0])
+  movel(target, a=accel, v=vel, t=0, r=0)
+  sleep(1.0)
+
+  # -- Waypoint 21 : joint: top tube / seat tube (retrace) --
+  target = pose_trans(T_base_cam, p[-0.12535494453271437, -0.02984006022384196, 0.99, 0, 0, 0])
+  movel(target, a=accel, v=vel, t=0, r=0)
+  sleep(1.0)
+
+  # -- Waypoint 22 : midpoint: top tube --
+  target = pose_trans(T_base_cam, p[0.09320533765503279, -0.15892436476005206, 0.99, 0, 0, 0])
+  movel(target, a=accel, v=vel, t=0, r=0)
+  sleep(1.0)
+
+  # -- Waypoint 23 : joint: head tube / top tube --
+  target = pose_trans(T_base_cam, p[0.2912755933876787, -0.2926188230296982, 0.99, 0, 0, 0])
+  movel(target, a=accel, v=vel, t=0, r=0)
+  sleep(1.0)
 end
 inspection_program()
