@@ -1,14 +1,36 @@
-Detect an ordered sequence of inspection waypoints tracing the outline of the {target_object} in the image.
-Return the waypoints in the order a robot arm should visit them to inspect the
-entire {target_object}, starting from one end and moving continuously along
-its structure.
+Detect the key structural keypoints of the {target_object} frame visible in
+the image.
+
+Place waypoints using the following rules:
+1. JOINTS: Place one waypoint wherever two or more frame tubes meet,
+   intersect, or are welded together.
+2. ENDPOINTS: Place one waypoint at each terminal end of a frame tube
+   (e.g., where an axle, headset, or seat post is inserted).
+3. MID-POINTS: Place one waypoint at the approximate midpoint of each
+   straight tube segment between two joints/endpoints.
+4. BENDS: Place one waypoint at any location where a single tube changes
+   direction (curves or bends).
+
+Constraints:
+- Place exactly ONE waypoint per distinct location. If multiple rules
+  apply to the same physical point (e.g., a joint that is also an
+  endpoint), place only one waypoint there.
+- Do NOT place waypoints on wheels, pedals, handlebars, seat, cables,
+  or accessories — only on the structural frame tubes.
+- Only include locations clearly visible in the image.
+
+Ordering:
+- Order the waypoints as a single continuous path along the frame
+  structure, starting from the top of the head tube (front of the
+  frame) and visiting each waypoint exactly once where possible.
+  When a tube dead-ends, backtrack to the nearest junction before
+  continuing to unvisited tubes.
 
 The answer should follow the YAML format:
 - point: <point>
   label: <label>
-- point: <point>
-  label: <label>
 
-Points are in [y, x] format normalized to 0-1000. Use short descriptive labels
-for each waypoint describing the feature at that location (e.g., 'head_tube',
-'top_tube', 'seat_tube', 'bottom_bracket', 'chainstay', 'rear_dropout').
+Points are in [y, x] format normalized to 0-1000. Use short descriptive
+labels for each waypoint describing the structural feature at that
+location (e.g., "joint: top tube / down tube", "midpoint: down tube",
+"endpoint: rear axle", "bend: seat stay").
