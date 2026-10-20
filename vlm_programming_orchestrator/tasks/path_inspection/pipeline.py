@@ -24,6 +24,7 @@ def plan_inspection_path(
     config=None,
     vision_backend="gemini_realsense",
     vlm_prompt_file=None,
+    image_path=None,
 ):
     """Detect `target_object` and plan an ordered 3D inspection path along it.
 
@@ -36,6 +37,8 @@ def plan_inspection_path(
         vision_backend (str): Name of the registered vision/detector backend to use.
         vlm_prompt_file (str or Path, optional): Overrides the bundled default
             VLM detection prompt template.
+        image_path (str or Path, optional): Image sent to the VLM instead of
+            the color image captured from RealSense.
 
     Returns:
         dict or None: Contains `plan_data` (ordered 3D waypoints), `detections`,
@@ -44,18 +47,29 @@ def plan_inspection_path(
     if config and config.get('target_object'):
         target_object = config['target_object']
 
-    exposure = config.get('exposure', 450) if config else 450
+    exposure = config.get('exposure', 800) if config else 2500
     contrast = config.get('contrast', 70) if config else 70
     brightness_target = config.get('brightness_target', 20) if config else 20
 
     detector = get_detector_backend(
         vision_backend, api_key,
-        exposure=exposure, contrast=contrast, brightness_target=brightness_target,
+        exposure=exposure,
+        contrast=contrast,
+        brightness_target=brightness_target,
+        model_id=vlm_model,
+        use_realsense=image_path is None,
     )
-    image, depth_frame, depth_intrinsic = detector.capture_realsense_image(
-        "0_raw_realsense_capture.png")
+    if image_path:
+        image = Image.open(image_path).convert("RGB")
+        depth_frame = None
+        depth_intrinsic = None
+    else:
+        image, depth_frame, depth_intrinsic = detector.capture_realsense_image(
+            "0_raw_realsense_capture.png")
     image_size = image.size
-    depth_image = np.asanyarray(depth_frame.get_data())
+    depth_image = (
+        np.asanyarray(depth_frame.get_data()) if depth_frame is not None else None
+    )
 
     prompt_path = vlm_prompt_file or os.path.join(
         _PROMPTS_DIR, "vlm_detect_path.txt")
@@ -69,7 +83,8 @@ def plan_inspection_path(
         return None
 
     add_depth_to_detections(
-        waypoints_pixel, depth_image, image_size, hardcoded=True)
+        waypoints_pixel, depth_image, image_size,
+        hardcoded=True)
     detector.draw_points_on_image(
         image, waypoints_pixel, output_path="1_inspection_path.png")
 
@@ -83,8 +98,11 @@ def plan_inspection_path(
             for wp in waypoints_pixel
         ],
     }]
+    with open(_CALIB_FILE, encoding="utf-8") as f:
+        intrinsics = json.load(f)["camera_intrinsics"]
     plan_data = convert_plan_to_3d(
-        detector, plan_pixel, image_size, depth_frame, depth_intrinsic)
+        detector, plan_pixel, image_size, depth_frame, depth_intrinsic,
+        intrinsics=intrinsics)
 
     print(
         f"\n=== Summary ===\nPlanned inspection path with {len(waypoints_pixel)} "

@@ -27,9 +27,11 @@ class GeminiRoboticsDetector:
         self,
         api_key,
         base_url="https://yoda.teknologisk.dk/public/api-gateway/gemini/",
-        exposure=450,
+        model_id="gemini-robotics-er-2-preview",
+        exposure=800,
         contrast=0,
-        brightness_target=20
+        brightness_target=20,
+        use_realsense=True,
     ):
         """
         Initialize the detector with API key and proxy URL.
@@ -43,13 +45,18 @@ class GeminiRoboticsDetector:
         """
         self.api_key = api_key
         self.base_url = base_url.rstrip('/')
-        self.model_id = "gemini-robotics-er-1.6-preview"
+        self.model_id = model_id
         self.exposure = exposure
         self.exposure_time = exposure
         self.contrast = contrast
         self.brightness_target = brightness_target
-        self.pipeline, self.config, self.align = self.init_realsense(
-            aligned=True)
+        if use_realsense:
+            self.pipeline, self.config, self.align = self.init_realsense(
+                aligned=True)
+        else:
+            self.pipeline = None
+            self.config = None
+            self.align = None
 
     def init_realsense(self, aligned=True, resolution=(1280, 720)):
         """Initialize RealSense camera pipeline."""
@@ -69,6 +76,7 @@ class GeminiRoboticsDetector:
         pipeline.start(config)
         sensor = pipeline.get_active_profile().get_device().query_sensors()[1]
         sensor.set_option(rs.option.exposure, self.exposure)
+        print("set exposure to ", self.exposure)
         # sensor.set_option(rs.option.contrast, self.contrast)
         try:
             for _ in range(30):
@@ -186,7 +194,7 @@ class GeminiRoboticsDetector:
     def capture_realsense_image(self, save_path=None):
         """Capture an image from RealSense camera."""
 
-        self.auto_exposure(brightness_target=self.brightness_target)
+        #self.auto_exposure(brightness_target=self.brightness_target)
 
         color_frame, depth_frame, _color_intrinsic, depth_intrinsic = self.aligned_frames_and_images()
         color_image = np.asanyarray(color_frame.get_data())

@@ -33,6 +33,7 @@ class Config:
     # ----- Swappable backends (see robots/, llm/, vision/, tasks/ registries) -----
     llm_backend: str = "claude_proxy"
     vision_backend: str = "gemini_realsense"
+    exposure: int = 800
 
     # ----- Task selection (see tasks/ registry) -----
     # e.g. "stack_blocks" or "path_inspection". Determines what the VLM

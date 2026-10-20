@@ -92,6 +92,9 @@ def convert_plan_to_3d(detector, plan_pixel, image_size, depth_frame, depth_intr
         image_size: Tuple of (width, height).
         depth_frame: RealSense depth frame.
         depth_intrinsic: Depth camera intrinsics.
+        intrinsics: Optional color intrinsics dict (width, height, fx, fy, ppx, ppy).
+            If given, each waypoint is deprojected at its own depth_mm instead
+            of using the depth frame.
 
     Returns:
         list: The plan with each waypoint's `point` replaced by `[x, y, z]` in
@@ -106,17 +109,28 @@ def convert_plan_to_3d(detector, plan_pixel, image_size, depth_frame, depth_intr
         if 'trajectory' in step:
             trajectory_3d = []
             for waypoint in step['trajectory']:
+                    if intrinsics is not None:
+                        waypoint_3d['point'] = [float(c) for c in deproject_normalized_point(
+                            y_norm, x_norm, waypoint['point'][2] / 1000.0, intrinsics)]
+                        trajectory_3d.append(waypoint_3d)
+                        continue
                 waypoint_3d = waypoint.copy()
                 if 'point' in waypoint and len(waypoint['point']) >= 2:
                     y_norm, x_norm = waypoint['point'][0], waypoint['point'][1]
                     abs_x = int(x_norm / 1000.0 * width)
                     abs_y = int(y_norm / 1000.0 * height)
 
-                    point_3d, _ = detector.img_point_to_cam_coord_realsense(
-                        [abs_x, abs_y],
-                        depth_frame,
-                        depth_intrinsic
-                    )
+                    if depth_frame is None or depth_intrinsic is None:
+                        # Without a camera, retain normalized image position
+                        # and use the supplied fixed depth as a best-effort
+                        # robot-frame approximation.
+                        point_3d = [x_norm / 1000.0, y_norm / 1000.0]
+                    else:
+                        point_3d, _ = detector.img_point_to_cam_coord_realsense(
+                            [abs_x, abs_y],
+                            depth_frame,
+                            depth_intrinsic
+                        )
                     waypoint_3d['point'] = [float(point_3d[0]), float(
                         point_3d[1]), float(waypoint['point'][2]/1000.0)]
                 trajectory_3d.append(waypoint_3d)

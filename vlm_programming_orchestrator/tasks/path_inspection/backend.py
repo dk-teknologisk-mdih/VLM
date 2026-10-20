@@ -22,6 +22,10 @@ class PathInspectionTaskBackend:
         return plan_inspection_path(
             api_key, base_url, config=gui_config, vision_backend=vision_backend,
             vlm_prompt_file=self.config.vlm_prompt_file,
+            image_path=(
+                gui_config.get("image_path") if gui_config
+                else self.config.input_image_path
+            ),
         )
 
     def build_prompt(self, plan_data, robot_type, code_language, task_description_file, best_practices_file):
@@ -36,6 +40,7 @@ class PathInspectionTaskBackend:
             code_language=code_language,
             task_description_file=task_description_file,
             best_practices_file=best_practices_file,
+            T_base_cam=json.load(open("vlm_programming_orchestrator/tasks/path_inspection/T_base_cam.json"))["T_base_cam"],
         )
 
 

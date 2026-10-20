@@ -108,7 +108,7 @@ class VLMInputGUI:
         self.pipeline = None
         self.camera_running = False
         self.camera_label = None
-        self.camera_exposure = 450
+        self.camera_exposure = 800
         self.camera_contrast = 70
         self.brightness_target = 20  # target mean of non-white pixels
 
