@@ -29,13 +29,22 @@ def extract_code_block(text):
     # Remove em-dashes and en-dashes that may be used as fences instead of backticks
     text = text.replace("—", "-").replace("–", "-")
 
-    m = re.search(r"```(?:[a-zA-Z0-9_+-]*)\n(.*?)```", text, flags=re.DOTALL)
-    if m:
-        return m.group(1).strip()
-    return text.strip()
+    # Pair the last two fences from the bottom so stray/unbalanced fences earlier in the text don't matter.
+    end = text.rfind("```")
+    if end == -1:
+        return text.strip()
+    start = text.rfind("```", 0, end)
+    if start == -1:
+        return text.strip()
+
+    body = text[start + 3:end]
+    newline = body.find("\n")
+    if newline != -1 and re.fullmatch(r"[a-zA-Z0-9_+-]*\s*", body[:newline]):
+        body = body[newline + 1:]
+    return body.strip()
 
 
-def add_depth_to_detections(detections, depth_image, image_size, hardcoded=False, hardcoded_depth_mm=570):
+def add_depth_to_detections(detections, depth_image, image_size, hardcoded=False, hardcoded_depth_mm=990):
     """Add a depth value (mm) to each detection's `point` list, in place.
 
     Args:

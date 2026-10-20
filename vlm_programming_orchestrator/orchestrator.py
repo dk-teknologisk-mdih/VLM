@@ -221,9 +221,50 @@ class VLMOrchestrator:
             self.state = State.ERROR
             return
 
-        logger.info(
-            f"Generating code (attempt {self.attempt}/{self.config.max_retry_attempts})..."
-        )
+        if self.config.code_file is not None and self.attempt == 1:
+            try:
+                loaded_code = self.config.code_file.read_text(encoding="utf-8")
+            except OSError as e:
+                self.error_message = f"Failed to load code file: {e}"
+                logger.error(self.error_message)
+                self.state = State.ERROR
+                return
+            self.current_raw_code = loaded_code
+            self.current_code = extract_code_block(loaded_code)
+            if not self.current_code:
+                self.error_message = "Code file was empty."
+                logger.error(self.error_message)
+                self.state = State.ERROR
+                return
+            if self.plan_data is not None:
+                self.current_prompt = self.task_backend.build_prompt(
+                    self.plan_data,
+                    robot_type=self.config.robot_type,
+                    code_language=self.config.code_language,
+                    task_description_file=self.config.task_description_file,
+                    best_practices_file=self.config.best_practices_file,
+                )
+            logger.info(f"Loaded robot code from {self.config.code_file}")
+            self.state = State.SAVE_MODULE
+            return
+
+        if self.config.code_file is not None:
+            if not self.config.api_key or not self.config.base_url:
+                self.error_message = (
+                    "API_KEY / BASE_URL must be set to auto-fix code after "
+                    "a --code-file validation failure."
+                )
+                logger.error(self.error_message)
+                self.state = State.ERROR
+                return
+            logger.info(
+                f"Fixing code from {self.config.code_file} "
+                f"(attempt {self.attempt}/{self.config.max_retry_attempts})..."
+            )
+        else:
+            logger.info(
+                f"Generating code (attempt {self.attempt}/{self.config.max_retry_attempts})..."
+            )
 
         if self.attempt == 1:
             prompt = self.task_backend.build_prompt(
