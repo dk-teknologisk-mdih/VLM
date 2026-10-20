@@ -6,9 +6,9 @@ Implements the full 12-step workflow as a state machine:
   1. RUN_GUI              -> get user input
   2. PLAN_TRAJECTORY      -> VLM planning for the active task (see tasks/)
   3. GENERATE_CODE        -> LLM generates robot code (or fixes it)
-  4. SAVE_MODULE          -> write .mod file
-  5. VALIDATE_IN_ROBOTSTUDIO / FIX_SYNTAX_ERRORS
-  6. SIMULATE             -> start sim + wait for completion
+  4. SAVE_MODULE          -> write the generated module file
+  5. VALIDATE_IN_SIMULATION / FIX_SYNTAX_ERRORS
+  6. SIMULATE             -> start the selected simulator + wait for completion
   7. HUMAN_REVIEW
   8. TRANSFER_TO_ROBOT    -> copy .mod to FTP share
   9. SEND_LOAD            -> LOAD + wait LOAD_OK
@@ -20,6 +20,8 @@ Implements the full 12-step workflow as a state machine:
 import logging
 import shutil
 import time
+
+import yaml
 
 from .config import Config, State
 from .human_review import ask_human_review_with_feedback, ask_skip_validation
@@ -35,8 +37,38 @@ from .tasks.registry import get_task_backend
 logger = logging.getLogger("orchestrator")
 
 
+def _normalize_loaded_plan(loaded):
+    if isinstance(loaded, dict):
+        return loaded.get("plan_data", loaded)
+    if isinstance(loaded, list) and all(
+        isinstance(item, dict)
+        and isinstance(item.get("point"), list)
+        and len(item["point"]) >= 2
+        for item in loaded
+    ):
+        return [{
+            "step": 1,
+            "action": "inspect",
+            "trajectory": [
+                {
+                    "point": [
+                        float(item["point"][1]) / 1000.0,
+                        float(item["point"][0]) / 1000.0,
+                        (
+                            float(item["point"][2]) / 1000.0
+                            if len(item["point"]) > 2 else 0.57
+                        ),
+                    ],
+                    "label": item.get("label", "inspect_point"),
+                }
+                for item in loaded
+            ],
+        }]
+    return loaded
+
+
 class VLMOrchestrator:
-    """State machine driving GUI -> VLM -> LLM -> RobotStudio -> Robot."""
+    """State machine driving GUI -> VLM -> LLM -> simulation backend -> robot."""
 
     def __init__(
         self,
@@ -45,7 +77,12 @@ class VLMOrchestrator:
         events: PipelineEvents | None = None,
     ):
         self.config = config
-        self.state = State.RUN_GUI if gui_config is None else State.PLAN_TRAJECTORY
+        if config.vlm_plan_file is not None:
+            self.state = State.PLAN_TRAJECTORY
+        elif config.code_file is not None:
+            self.state = State.GENERATE_CODE
+        else:
+            self.state = State.RUN_GUI if gui_config is None else State.PLAN_TRAJECTORY
         self.gui_config: dict | None = gui_config
         self.events = events
         self._log_handler: QueueLogHandler | None = None
@@ -88,7 +125,7 @@ class VLMOrchestrator:
             State.PLAN_TRAJECTORY: self._state_plan_task,
             State.GENERATE_CODE: self._state_generate_code,
             State.SAVE_MODULE: self._state_save_module,
-            State.VALIDATE_IN_ROBOTSTUDIO: self._state_validate,
+            State.VALIDATE_IN_SIMULATION: self._state_validate,
             State.FIX_SYNTAX_ERRORS: self._state_fix_syntax,
             State.SIMULATE: self._state_simulate,
             State.HUMAN_REVIEW: self._state_human_review,
@@ -141,6 +178,25 @@ class VLMOrchestrator:
         self.state = State.PLAN_TRAJECTORY
 
     def _state_plan_task(self):
+        if self.config.vlm_plan_file is not None:
+            try:
+                loaded = yaml.safe_load(
+                    self.config.vlm_plan_file.read_text(encoding="utf-8"))
+            except (OSError, yaml.YAMLError) as e:
+                self.error_message = f"Failed to load VLM plan file: {e}"
+                logger.error(self.error_message)
+                self.state = State.ERROR
+                return
+            self.plan_data = _normalize_loaded_plan(loaded)
+            if not self.plan_data:
+                self.error_message = "VLM plan file did not contain any plan data."
+                logger.error(self.error_message)
+                self.state = State.ERROR
+                return
+            logger.info(f"Loaded VLM plan from {self.config.vlm_plan_file}")
+            self.state = State.GENERATE_CODE
+            return
+
         if not self.config.api_key or not self.config.base_url:
             self.error_message = "API_KEY / BASE_URL not set in environment."
             logger.error(self.error_message)
@@ -215,8 +271,8 @@ class VLMOrchestrator:
             self.state = State.ERROR
             return
 
-        if self.config.use_robotstudio_validation:
-            self.state = State.VALIDATE_IN_ROBOTSTUDIO
+        if self.config.use_simulation_validation:
+            self.state = State.VALIDATE_IN_SIMULATION
         else:
             self.state = State.TRANSFER_TO_ROBOT
 

@@ -248,10 +248,10 @@ def ask_human_review(parent=None) -> bool:
 
 
 def ask_skip_validation(parent=None) -> bool:
-    """Ask the user whether to skip RobotStudio validation. Returns True to skip."""
+    """Ask the user whether to skip simulation validation. Returns True to skip."""
     return _yes_no_dialog(
-        "RobotStudio Not Available",
-        "Could not connect to RobotStudio for validation.\n\n"
+        "Simulation Backend Not Available",
+        "Could not connect to the selected simulation backend for validation.\n\n"
         "Do you want to skip validation and proceed anyway?",
         parent=parent,
     )

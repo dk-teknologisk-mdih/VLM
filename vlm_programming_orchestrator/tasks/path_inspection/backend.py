@@ -1,5 +1,6 @@
 """Task plugin: detect an object (e.g. a bike frame) and plan an inspection path along it."""
 
+import json
 import os
 
 import yaml

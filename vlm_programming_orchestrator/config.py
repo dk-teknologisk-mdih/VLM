@@ -42,6 +42,13 @@ class Config:
     # backends stay unaware of which task is active.
     task_type: str = "stack_blocks"
 
+    # Input image for tasks that do not use the interactive camera GUI.
+    input_image_path: Optional[Path] = None
+
+    # Reuse saved intermediate artifacts instead of calling the VLM/LLM.
+    vlm_plan_file: Optional[Path] = None
+    code_file: Optional[Path] = None
+
     # Offline-editable prompt template overrides for the active task. When
     # set, the task backend loads these instead of its bundled default
     # `prompts/*.txt` template. None means "use the task's own default".
@@ -69,9 +76,19 @@ class Config:
     socket_timeout: float = 120.0
 
     # ----- Robot validation and simulation -----
-    # Despite the legacy name, this gates the selected backend's verifier and
-    # simulator: RobotStudio for ABB, URScript validation and URSim for UR.
+    # This gates the selected robot backend's verifier and simulator: RobotStudio
+    # for ABB or URScript validation + URSim for UR.
     use_robotstudio_validation: bool = True
+
+    @property
+    def use_simulation_validation(self) -> bool:
+        """Generic alias for the selected validation/simulation backend."""
+        return self.use_robotstudio_validation
+
+    @use_simulation_validation.setter
+    def use_simulation_validation(self, value: bool) -> None:
+        self.use_robotstudio_validation = value
+
     robotstudio_window_title: str = "AIMatters_stacking - RobotStudio"
     controller_id: str = "15000-500064"
     module_name: str = "MainModule"
@@ -142,7 +159,8 @@ class State(Enum):
     PLAN_TRAJECTORY = auto()
     GENERATE_CODE = auto()
     SAVE_MODULE = auto()
-    VALIDATE_IN_ROBOTSTUDIO = auto()
+    VALIDATE_IN_SIMULATION = auto()
+    VALIDATE_IN_ROBOTSTUDIO = VALIDATE_IN_SIMULATION
     FIX_SYNTAX_ERRORS = auto()
     SIMULATE = auto()
     HUMAN_REVIEW = auto()

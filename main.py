@@ -1,4 +1,4 @@
-"""Main entry point for the VLM -> LLM -> RobotStudio -> Robot pipeline.
+"""Main entry point for the VLM -> LLM -> simulation backend -> Robot pipeline.
 
 Implements the full 12-step flow via the VLMOrchestrator state machine:
   1. Run the GUI
@@ -29,9 +29,11 @@ from dotenv import load_dotenv
 
 from vlm_programming_orchestrator import (Config, VLMOrchestrator,
                                           run_continuous)
-from vlm_programming_orchestrator.gui.gui import run_app
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+DEFAULT_VLM_PLAN_FILE = Path("VLM_output/1_inspection_path_pixel.yaml")
+DEFAULT_CODE_FILE = Path("VLM_output/4_robot_control_code.txt")
 
 
 def load_gui_config_from_file(path: Path) -> dict:
@@ -102,7 +104,7 @@ def main():
     # during construction so UR does not inherit ABB generation settings.
     config = Config(robot_type=args.robot_type or "ABB")
     if args.no_robotstudio:
-        config.use_robotstudio_validation = False
+        config.use_simulation_validation = False
     if args.no_human_review:
         config.require_human_review = False
     if args.robot_ip:

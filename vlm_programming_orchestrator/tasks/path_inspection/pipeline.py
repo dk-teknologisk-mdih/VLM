@@ -6,15 +6,18 @@ The target object (default "bike frame") is fully configurable via
 touching code.
 """
 
+import json
 import os
 
 import numpy as np
+from PIL import Image
 
 from ...vision.registry import get_detector_backend
 from ..common import add_depth_to_detections, convert_plan_to_3d, load_prompt_template
 
 _PROMPTS_DIR = os.path.join(os.path.dirname(__file__), "prompts")
-_DEFAULT_TARGET_OBJECT = "bike frame"
+_CALIB_FILE = os.path.join(os.path.dirname(__file__), "T_base_cam.json")
+_DEFAULT_TARGET_OBJECT = "bike frame (not wheels, handlebars, or seat)"
 
 
 def plan_inspection_path(

@@ -82,7 +82,16 @@ def add_depth_to_detections(detections, depth_image, image_size, hardcoded=False
     return detections
 
 
-def convert_plan_to_3d(detector, plan_pixel, image_size, depth_frame, depth_intrinsic):
+def deproject_normalized_point(y_norm, x_norm, depth_m, intrinsics):
+    """Pinhole-deproject a 0-1000 normalized [y, x] image point at `depth_m` into camera-frame meters."""
+    u = x_norm / 1000.0 * intrinsics["width"]
+    v = y_norm / 1000.0 * intrinsics["height"]
+    x = (u - intrinsics["ppx"]) / intrinsics["fx"] * depth_m
+    y = (v - intrinsics["ppy"]) / intrinsics["fy"] * depth_m
+    return [x, y, depth_m]
+
+
+def convert_plan_to_3d(detector, plan_pixel, image_size, depth_frame, depth_intrinsic, intrinsics=None):
     """Convert a `step -> trajectory -> waypoint` plan from pixel to 3D camera coordinates.
 
     Args:
@@ -109,14 +118,14 @@ def convert_plan_to_3d(detector, plan_pixel, image_size, depth_frame, depth_intr
         if 'trajectory' in step:
             trajectory_3d = []
             for waypoint in step['trajectory']:
+                waypoint_3d = waypoint.copy()
+                if 'point' in waypoint and len(waypoint['point']) >= 2:
+                    y_norm, x_norm = waypoint['point'][0], waypoint['point'][1]
                     if intrinsics is not None:
                         waypoint_3d['point'] = [float(c) for c in deproject_normalized_point(
                             y_norm, x_norm, waypoint['point'][2] / 1000.0, intrinsics)]
                         trajectory_3d.append(waypoint_3d)
                         continue
-                waypoint_3d = waypoint.copy()
-                if 'point' in waypoint and len(waypoint['point']) >= 2:
-                    y_norm, x_norm = waypoint['point'][0], waypoint['point'][1]
                     abs_x = int(x_norm / 1000.0 * width)
                     abs_y = int(y_norm / 1000.0 * height)
 
@@ -159,3 +168,10 @@ def extract_waypoints_for_visualization(plan_pixel):
                 waypoint_with_step['step'] = step_number
                 all_waypoints.append(waypoint_with_step)
     return all_waypoints
+
+if __name__ == "__main__":
+    # read C:\Users\Renee\Documents\VLM\VLM_output\4_robot_control_code.txt
+    with open(r"C:\Users\Renee\Documents\VLM\VLM_output\4_robot_control_code.txt", "r", encoding="utf-8") as f:
+        content = f.read()
+
+    print(extract_code_block(content))
