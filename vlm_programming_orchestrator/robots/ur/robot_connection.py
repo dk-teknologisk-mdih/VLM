@@ -12,6 +12,7 @@ import logging
 import time
 
 from ...config import Config
+from .client_interface import RobotMessageListener
 from .dashboard_client import DashboardClient
 
 logger = logging.getLogger("orchestrator")
@@ -24,6 +25,7 @@ class URRobotExecutor:
         self.config = config
         self.dashboard = DashboardClient(
             config.ur_robot_ip, config.ur_dashboard_port, config.ur_dashboard_timeout)
+        self.messages = RobotMessageListener(config.ur_robot_ip, config.ur_secondary_port)
 
     def is_connected(self) -> bool:
         return self.dashboard.is_connected()
@@ -35,6 +37,7 @@ class URRobotExecutor:
         return self.dashboard.connect()
 
     def disconnect(self) -> None:
+        self.messages.stop()
         self.dashboard.disconnect()
 
     def load_module(self, filename: str) -> tuple[bool, str]:
@@ -53,6 +56,7 @@ class URRobotExecutor:
         return False, response
 
     def start_execution(self) -> tuple[bool, str]:
+        self.messages.start()
         response = self.dashboard.play()
         if not response.lower().startswith("starting program"):
             logger.error(f"Failed to start execution: {response}")
@@ -66,18 +70,57 @@ class URRobotExecutor:
             logger.error(f"Robot execution error: {message}")
         return success, message
 
+    def _wait_for_program_start(self, timeout: float = 15.0) -> bool:
+        """Polyscope acknowledges `play` before the program reaches PLAYING."""
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if self.dashboard.program_state() == "PLAYING":
+                return True
+            time.sleep(0.2)
+        return False
+
     def _wait_until_stopped(self, timeout: float) -> tuple[bool, str]:
         start_time = time.time()
+        if not self._wait_for_program_start():
+            return False, "EXEC_ERR:program never started running after play"
+
         while time.time() - start_time < timeout:
-            if not self.dashboard.is_running():
+            try:
+                state = self.dashboard.program_state()
+                safety = self.dashboard.safety_status()
+            except Exception as e:
+                return False, f"EXEC_ERR:lost dashboard connection: {e}"
+
+            if safety != "NORMAL":
+                return False, self._recover(f"EXEC_ERR:safety status {safety}")
+            reported = self.messages.errors()
+            if reported:
+                return False, self._recover("EXEC_ERR:" + "; ".join(reported))
+            if state == "PAUSED":
+                return False, self._recover("EXEC_ERR:program paused on a runtime error popup")
+            if state == "STOPPED":
                 break
             time.sleep(2)
         else:
             return False, "Execution did not complete within the timeout period."
 
-        status = self.dashboard.safety_status()
-        if status == "NORMAL":
-            return True, "DONE"
-        self.dashboard.close_popup()
-        self.dashboard.unlock_protective_stop()
-        return False, f"EXEC_ERR:safety status {status}"
+        time.sleep(1.0)  # an abort popup can arrive just after the state flips to STOPPED
+        safety = self.dashboard.safety_status()
+        if safety != "NORMAL":
+            return False, self._recover(f"EXEC_ERR:safety status {safety}")
+        reported = self.messages.errors()
+        if reported:
+            return False, self._recover("EXEC_ERR:" + "; ".join(reported))
+        self.messages.stop()
+        return True, "DONE"
+
+    def _recover(self, message: str) -> str:
+        """Clears popups/protective stops so the controller is usable for the next attempt."""
+        try:
+            self.dashboard.stop()
+            self.dashboard.close_popup()
+            self.dashboard.unlock_protective_stop()
+        except Exception as e:
+            logger.warning(f"Could not reset robot after failure: {e}")
+        self.messages.stop()
+        return message

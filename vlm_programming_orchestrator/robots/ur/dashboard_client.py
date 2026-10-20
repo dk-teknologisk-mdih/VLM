@@ -100,9 +100,26 @@ class DashboardClient:
     def is_running(self) -> bool:
         """Parses the 'Program running: true|false' response."""
         response = self.send("running")
-        return response.strip().lower().endswith("true")
+        if ":" not in response:
+            # Anything else ('could not understand', empty line on a half-open socket)
+            # must not be silently read as "finished".
+            raise RuntimeError(f"Unexpected 'running' response from dashboard: {response!r}")
+        return response.split(":", 1)[1].strip().lower() == "true"
+
+    def program_state(self) -> str:
+        """Returns 'PLAYING', 'PAUSED' or 'STOPPED' from the 'STOPPED <program>' response."""
+        response = self.send("programState")
+        parts = response.split()
+        if not parts:
+            raise RuntimeError("Empty 'programState' response from dashboard.")
+        return parts[0].strip().upper()
+
+    def robot_mode(self) -> str:
+        """Parses the 'Robotmode: RUNNING' style response, returning just the mode word."""
+        response = self.send("robotmode")
+        return (response.split(":", 1)[1] if ":" in response else response).strip().upper()
 
     def safety_status(self) -> str:
         """Parses the 'Safetystatus: NORMAL' style response, returning just the status word."""
         response = self.send("safetystatus")
-        return response.split(":", 1)[1].strip() if ":" in response else response
+        return (response.split(":", 1)[1] if ":" in response else response).strip().upper()

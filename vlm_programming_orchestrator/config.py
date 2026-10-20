@@ -106,15 +106,17 @@ class Config:
     ursim_ip: str = "127.0.0.1"
     ur_dashboard_port: int = 29999
     ur_dashboard_timeout: float = 10.0
+    # Secondary client interface; the only source of runtime-error/popup text.
+    ur_secondary_port: int = 30002
     # Host dir bind-mounted into the URSim container's programs folder.
     ursim_programs_dir: Path = Path("./URSim_programs")
     # Static Polyscope program (user-authored once) with an Import-Script-File
     # node that loads `module_filename` from the shared programs folder.
-    ur_container_program: str = "AIMatters_container.urp"
+    ur_container_program: str = "Renee_AI.urp"
     # Real UR controller IP; blank disables real-robot execution.
     ur_robot_ip: str = ""
     ur_validate_image: str = "universalrobots/ursim_e-series"
-    ur_validate_robot_model: str = "UR5"
+    ur_validate_robot_model: str = "UR10"
     ur_validate_timeout: int = 10
 
     # ----- Human review -----
