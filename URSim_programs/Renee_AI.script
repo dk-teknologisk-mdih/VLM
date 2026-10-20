@@ -1,0 +1,123 @@
+def Renee_AI():
+  global _hidden_verificationVariable=0
+  set_tcp(p[0.0,0.0,0.0,0.0,0.0,0.0])
+  set_safety_mode_transition_hardness(1)
+  set_tool_communication(False, 115200, 0, 1, 1.5, 3.5)
+  set_tool_output_mode(0)
+  set_tool_digital_output_mode(0, 1)
+  set_tool_digital_output_mode(1, 1)
+  set_tool_voltage(0)
+  set_gravity([0.0, 0.0, 9.82])
+  set_target_payload(0.000000, [0.000000, 0.000000, 0.000000], [0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000])
+  tool_wrench_limit_disable()
+  set_standard_analog_input_domain(0, 1)
+  set_standard_analog_input_domain(1, 1)
+  set_tool_analog_input_domain(0, 1)
+  set_tool_analog_input_domain(1, 1)
+  set_analog_outputdomain(0, 0)
+  set_analog_outputdomain(1, 0)
+  set_input_actions_to_default()
+  motion_version_set(2)
+  global Point_1=p[0.5568588668091735,0.5548622133012638,0.6077329510362108,0.5184275471925491,-2.0915986091434484,-2.2102185666998215]
+  step_count_7d73ec32_2135_499e_9b61_19130710206f = 0.0
+  thread Step_Counter_Thread_f218fe6d_d38a_44c5_b217_2700c25fa892():
+    while (True):
+      step_count_7d73ec32_2135_499e_9b61_19130710206f = step_count_7d73ec32_2135_499e_9b61_19130710206f + 1.0
+      sync()
+    end
+  end
+  run Step_Counter_Thread_f218fe6d_d38a_44c5_b217_2700c25fa892()
+  global Waypoint_1_p=p[.202350710485, .489878748956, .593238324747, -1.522451921119, .525571005386, -.411993328570]
+  global Waypoint_1_q=[-2.2283842569347385, -1.5049524890535109, 1.7379816560749723, -3.350061839431465, -1.510878000816156, 0.06568613719612185]
+  $ 2 "Robot Program"
+  $ 3 "var_1≔get_actual_tcp_pose()"
+  global var_1= get_actual_tcp_pose ()
+  $ 4 "MoveJ"
+  $ 5 "var_1" "breakAfter"
+  movej(var_1, a=1.3962634015954636, v=1.0471975511965976)
+  $ 6 "MoveJ"
+  $ 7 "Waypoint_1" "breakAfter"
+  movej(Waypoint_1_q, a=1.3962634015954636, v=1.0471975511965976)
+  $ 8 "Script: generated_task.script"
+  def inspection_program():
+    # T_base_cam as a UR pose (position + axis-angle rotation vector)
+    # Derived from the 4x4 transformation matrix T_base_cam
+    global T_base_cam = p[0.352728458264352, -0.21258760881184183, 0.11788934094986696, -1.538543, 0.024168, 0.017202]
+  
+    # Offset to apply in camera frame: -0.4 m in camera X
+    global x_offset = -0.40
+  
+    # Movement parameters (conservative for inspection)
+    global accel = 0.3
+    global vel = 0.05
+  
+    # Compute the first waypoint pose
+    local first_wp = pose_trans(T_base_cam, p[0.335 + x_offset, 0.143, 0.57, 0, 0, 0])
+  
+    # Use movej to safely approach the first waypoint (avoids protective stop)
+    movej(first_wp, a=1.0, v=0.5)
+    sleep(1.0)
+  
+    # --- Waypoint 2: top_tube_front ---
+    movel(pose_trans(T_base_cam, p[0.381 + x_offset, 0.116, 0.57, 0, 0, 0]), a=accel, v=vel)
+    sleep(1.0)
+  
+    # --- Waypoint 3: top_tube_rear ---
+    movel(pose_trans(T_base_cam, p[0.65 + x_offset, 0.131, 0.57, 0, 0, 0]), a=accel, v=vel)
+    sleep(1.0)
+  
+    # --- Waypoint 4: seat_post_clamp ---
+    movel(pose_trans(T_base_cam, p[0.68 + x_offset, 0.11, 0.57, 0, 0, 0]), a=accel, v=vel)
+    sleep(1.0)
+  
+    # --- Waypoint 5: seat_tube_lower ---
+    movel(pose_trans(T_base_cam, p[0.627 + x_offset, 0.462, 0.57, 0, 0, 0]), a=accel, v=vel)
+    sleep(1.0)
+  
+    # --- Waypoint 6: bottom_bracket ---
+    movel(pose_trans(T_base_cam, p[0.615 + x_offset, 0.609, 0.57, 0, 0, 0]), a=accel, v=vel)
+    sleep(1.0)
+  
+    # --- Waypoint 7: chainstay_front ---
+    movel(pose_trans(T_base_cam, p[0.701 + x_offset, 0.609, 0.57, 0, 0, 0]), a=accel, v=vel)
+    sleep(1.0)
+  
+    # --- Waypoint 8: rear_dropout ---
+    movel(pose_trans(T_base_cam, p[0.888 + x_offset, 0.586, 0.57, 0, 0, 0]), a=accel, v=vel)
+    sleep(1.0)
+  
+    # --- Waypoint 9: seatstay_upper ---
+    movel(pose_trans(T_base_cam, p[0.736 + x_offset, 0.308, 0.57, 0, 0, 0]), a=accel, v=vel)
+    sleep(1.0)
+  
+    # --- Waypoint 10: seat_post_clamp ---
+    movel(pose_trans(T_base_cam, p[0.68 + x_offset, 0.131, 0.57, 0, 0, 0]), a=accel, v=vel)
+    sleep(1.0)
+  
+    # --- Waypoint 11: top_tube_rear ---
+    movel(pose_trans(T_base_cam, p[0.65 + x_offset, 0.131, 0.57, 0, 0, 0]), a=accel, v=vel)
+    sleep(1.0)
+  
+    # --- Waypoint 12: top_tube_front ---
+    movel(pose_trans(T_base_cam, p[0.381 + x_offset, 0.116, 0.57, 0, 0, 0]), a=accel, v=vel)
+    sleep(1.0)
+  
+    # --- Waypoint 13: head_tube ---
+    movel(pose_trans(T_base_cam, p[0.335 + x_offset, 0.143, 0.57, 0, 0, 0]), a=accel, v=vel)
+    sleep(1.0)
+  
+    # --- Waypoint 14: down_tube_upper ---
+    movel(pose_trans(T_base_cam, p[0.355 + x_offset, 0.256, 0.57, 0, 0, 0]), a=accel, v=vel)
+    sleep(1.0)
+  
+    # --- Waypoint 15: down_tube_lower ---
+    movel(pose_trans(T_base_cam, p[0.545 + x_offset, 0.591, 0.57, 0, 0, 0]), a=accel, v=vel)
+    sleep(1.0)
+  
+    # --- Waypoint 16: bottom_bracket ---
+    movel(pose_trans(T_base_cam, p[0.615 + x_offset, 0.609, 0.57, 0, 0, 0]), a=accel, v=vel)
+    sleep(1.0)
+  
+  end
+  inspection_program()
+end

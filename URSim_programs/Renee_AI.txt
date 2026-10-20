@@ -1,0 +1,9 @@
+ Program
+   Variables Setup
+   Robot Program
+     var_1≔get_actual_tcp_pose()
+     MoveJ
+       var_1
+     MoveJ
+       Waypoint_1
+     Script: generated_task.script
