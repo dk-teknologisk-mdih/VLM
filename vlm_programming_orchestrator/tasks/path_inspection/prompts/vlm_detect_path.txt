@@ -6,9 +6,7 @@ Place waypoints using the following rules:
    intersect, or are welded together.
 2. ENDPOINTS: Place one waypoint at each terminal end of a frame tube
    (e.g., where an axle, headset, or seat post is inserted).
-3. MID-POINTS: Place one waypoint at the approximate midpoint of each
-   straight tube segment between two joints/endpoints.
-4. BENDS: Place one waypoint at any location where a single tube changes
+3. BENDS: Place one waypoint at any location where a single tube changes
    direction (curves or bends).
 
 Constraints:
@@ -25,5 +23,5 @@ The answer should follow the YAML format:
 
 Points are in [y, x] format normalized to 0-1000. Use short descriptive
 labels for each waypoint describing the structural feature at that
-location (e.g., "joint: top tube / down tube", "midpoint: down tube",
+location (e.g., "joint: top tube / down tube",
 "endpoint: rear axle", "bend: seat stay").
