@@ -21,7 +21,8 @@ class Config:
     api_key: str = field(default_factory=lambda: os.environ.get("API_KEY", ""))
     base_url: str = field(
         default_factory=lambda: os.environ.get("BASE_URL", ""))
-    llm_model: str = "claude-opus-4-6"
+    llm_model: str = "claude-opus-5-5"
+    vlm_model: str = "gemini-robotics-er-2-preview"
     llm_max_tokens: int = 4096
     max_retry_attempts: int = 3
 

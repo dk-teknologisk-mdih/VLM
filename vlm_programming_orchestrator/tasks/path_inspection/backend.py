@@ -21,6 +21,7 @@ class PathInspectionTaskBackend:
     def plan(self, api_key, base_url, gui_config, vision_backend):
         return plan_inspection_path(
             api_key, base_url, config=gui_config, vision_backend=vision_backend,
+            vlm_model=self.config.vlm_model,
             vlm_prompt_file=self.config.vlm_prompt_file,
             image_path=(
                 gui_config.get("image_path") if gui_config

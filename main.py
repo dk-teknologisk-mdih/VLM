@@ -68,8 +68,26 @@ def main():
                         help="Robot backend to use, e.g. ABB or UR.")
     parser.add_argument("--code-language", type=str, default=None,
                         help="Code language to generate, e.g. Rapid or URScript.")
+    parser.add_argument("--llm-model", type=str, default=None,
+                        help="Override the LLM model used for robot code generation.")
+    parser.add_argument("--vlm-model", type=str, default=None,
+                        help="Override the VLM model used for task planning.")
     parser.add_argument("--task-type", type=str, default=None,
                         help="Task backend to use, e.g. stack_blocks or path_inspection.")
+    parser.add_argument("--image-path", type=str, default=None,
+                        help="Input image path for path_inspection instead of live camera capture.")
+    parser.add_argument("--vlm-plan-file", nargs="?", default=None,
+                        const=DEFAULT_VLM_PLAN_FILE, type=Path,
+                        help=(
+                            "Skip VLM planning and load an existing plan YAML file "
+                            f"(default: {DEFAULT_VLM_PLAN_FILE})."
+                        ))
+    parser.add_argument("--code-file", nargs="?", default=None,
+                        const=DEFAULT_CODE_FILE, type=Path,
+                        help=(
+                            "Skip LLM generation and load an existing robot code file "
+                            f"(default: {DEFAULT_CODE_FILE})."
+                        ))
     parser.add_argument("--vlm-prompt-file", type=str, default=None,
                         help="Override the active task's default VLM detection prompt template.")
     parser.add_argument("--llm-prompt-file", type=str, default=None,
@@ -101,8 +119,18 @@ def main():
         config.ftp_shared_dir = Path(args.ftp_dir)
     if args.code_language:
         config.code_language = args.code_language
+    if args.llm_model:
+        config.llm_model = args.llm_model
+    if args.vlm_model:
+        config.vlm_model = args.vlm_model
     if args.task_type:
         config.task_type = args.task_type
+    if args.image_path:
+        config.input_image_path = Path(args.image_path)
+    if args.vlm_plan_file:
+        config.vlm_plan_file = args.vlm_plan_file
+    if args.code_file:
+        config.code_file = args.code_file
     if args.vlm_prompt_file:
         config.vlm_prompt_file = Path(args.vlm_prompt_file)
     if args.llm_prompt_file:
@@ -114,10 +142,53 @@ def main():
     if args.ur_dashboard_port:
         config.ur_dashboard_port = args.ur_dashboard_port
 
-    if not config.api_key or not config.base_url:
+    print(f"LLM model: {config.llm_model}")
+    print(f"VLM model: {config.vlm_model}")
+
+    if config.vlm_plan_file is not None and not config.vlm_plan_file.is_file():
+        print(f"ERROR: VLM plan file not found: {config.vlm_plan_file}",
+              file=sys.stderr)
+        sys.exit(1)
+    if config.code_file is not None and not config.code_file.is_file():
+        print(f"ERROR: code file not found: {config.code_file}",
+              file=sys.stderr)
+        sys.exit(1)
+
+    needs_vlm_api = config.vlm_plan_file is None and config.code_file is None
+    needs_llm_api = config.code_file is None
+    if (needs_vlm_api or needs_llm_api) and (
+        not config.api_key or not config.base_url
+    ):
         print("ERROR: API_KEY and BASE_URL must be set (e.g. via .env).",
               file=sys.stderr)
         sys.exit(1)
+
+    if config.vlm_plan_file is not None or config.code_file is not None:
+        orch = VLMOrchestrator(config)
+        try:
+            orch.run()
+        finally:
+            orch.shutdown()
+        return
+
+    if config.task_type == "path_inspection":
+        if config.input_image_path is not None and not config.input_image_path.is_file():
+            print(f"ERROR: input image not found: {config.input_image_path}",
+                  file=sys.stderr)
+            sys.exit(1)
+
+        orch = VLMOrchestrator(
+            config,
+            gui_config=(
+                {"image_path": str(config.input_image_path)}
+                if config.input_image_path is not None else {}
+            ),
+        )
+        try:
+            orch.run()
+        finally:
+            orch.shutdown()
+        return
 
     # Optionally preload a saved GUI config (skips the GUI for the first cycle)
     initial_gui = None
@@ -129,6 +200,8 @@ def main():
             sys.exit(1)
         initial_gui = load_gui_config_from_file(full_path)
         print(f"Loaded GUI config from {full_path}")
+
+    from vlm_programming_orchestrator.gui.gui import run_app
 
     if args.once:
         run_app(config, initial_gui=initial_gui, run_once=True)

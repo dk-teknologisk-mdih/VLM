@@ -27,7 +27,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 LLM_BACKEND = "claude_proxy"
 
 
-def _stream_llm_response(llm_api_url, messages, events=None):
+def _stream_llm_response(llm_api_url, messages, model=None, events=None):
     """Stream the LLM response over SSE and return the final text.
 
     `events` is an optional `PipelineEvents` instance; if supplied, intermediate
@@ -36,11 +36,15 @@ def _stream_llm_response(llm_api_url, messages, events=None):
     `None` on failure.
     """
     payload = {"messages": messages}
+    if model:
+        payload["model"] = model
 
     if events is not None:
         events.llm_stream_start()
 
+    print("Waiting for LLM response...", flush=True)
     buffer_parts: list[str] = []
+    received_chars = 0
     success = False
     err_msg = ""
 
@@ -64,32 +68,44 @@ def _stream_llm_response(llm_api_url, messages, events=None):
                     kind = data.get("type")
                     content = data.get("content", "")
                     if kind == "status":
+                        print(f"\nLLM status: {content}", flush=True)
                         if events is not None:
                             events.llm_stream_chunk("status", content)
                     elif kind == "token":
                         buffer_parts.append(content)
+                        received_chars += len(content)
+                        print(
+                            f"\rReceiving LLM response... {received_chars} characters",
+                            end="",
+                            flush=True,
+                        )
                         if events is not None:
                             events.llm_stream_chunk("token", content)
                     elif kind == "error":
                         err_msg = content or "Unknown stream error"
-                        print(f"\nLLM stream error: {err_msg}")
+                        print(f"\nLLM stream error: {err_msg}", flush=True)
                         break
                     elif kind == "done":
                         success = True
                         break
             except InvalidStatusCodeError as e:
                 err_msg = f"Invalid status code: {e}"
-                print(err_msg)
+                print(f"\n{err_msg}", flush=True)
             except InvalidContentTypeError as e:
                 err_msg = f"Invalid content type: {e}"
-                print(err_msg)
+                print(f"\n{err_msg}", flush=True)
             except requests.RequestException as e:
                 err_msg = f"Request error: {e}"
-                print(err_msg)
+                print(f"\n{err_msg}", flush=True)
     except Exception as e:  # pylint: disable=W0718
         err_msg = f"Failed to open SSE stream: {e}"
-        print(err_msg)
+        print(f"\n{err_msg}", flush=True)
     finally:
+        print()
+        print(
+            "LLM stream complete." if success else "LLM stream failed.",
+            flush=True,
+        )
         if events is not None:
             events.llm_stream_end(success=success, message=err_msg)
 
@@ -98,14 +114,14 @@ def _stream_llm_response(llm_api_url, messages, events=None):
     return "".join(buffer_parts)
 
 
-def call_llm_for_robot_code(url, prompt, events=None):
+def call_llm_for_robot_code(url, prompt, model=None, events=None):
     """Generate robot control code from an already-built prompt.
 
     `events` is forwarded to the SSE streamer for live GUI updates.
     """
     print("\n=== Calling LLM for robot code generation ===")
     generated = _stream_llm_response(
-        url, [{"role": "user", "content": prompt}], events=events
+        url, [{"role": "user", "content": prompt}], model=model, events=events
     )
     if generated is None:
         return None
@@ -125,6 +141,7 @@ def call_llm_to_fix_code(
     original_prompt,
     robot_type="ABB",
     code_language="Rapid",
+    model=None,
     events=None,
 ):
     """Ask Claude to fix the given code based on an error/feedback message.
@@ -146,7 +163,7 @@ def call_llm_to_fix_code(
     ]
 
     print("\n=== Calling Claude to fix robot code ===")
-    fixed = _stream_llm_response(url, messages, events=events)
+    fixed = _stream_llm_response(url, messages, model=model, events=events)
     if fixed is None:
         return None
 
@@ -165,7 +182,10 @@ class ClaudeProxyCodeGen:
         self.config = config
 
     def generate_code(self, prompt, events=None):
-        return call_llm_for_robot_code(self.config.base_url, prompt, events=events)
+        return call_llm_for_robot_code(
+            self.config.base_url, prompt, model=self.config.llm_model,
+            events=events,
+        )
 
     def fix_code(
         self,
@@ -183,6 +203,7 @@ class ClaudeProxyCodeGen:
             original_prompt,
             robot_type=robot_type or self.config.robot_type,
             code_language=code_language or self.config.code_language,
+            model=self.config.llm_model,
             events=events,
         )
 

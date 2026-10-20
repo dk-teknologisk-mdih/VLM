@@ -23,6 +23,7 @@ def plan_inspection_path(
     target_object=_DEFAULT_TARGET_OBJECT,
     config=None,
     vision_backend="gemini_realsense",
+    vlm_model="gemini-robotics-er-2-preview",
     vlm_prompt_file=None,
     image_path=None,
 ):

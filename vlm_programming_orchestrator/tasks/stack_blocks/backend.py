@@ -21,6 +21,7 @@ class StackBlocksTaskBackend:
     def plan(self, api_key, base_url, gui_config, vision_backend):
         return plan_stacking_trajectory(
             api_key, base_url, config=gui_config, vision_backend=vision_backend,
+            vlm_model=self.config.vlm_model,
         )
 
     def build_prompt(self, plan_data, robot_type, code_language, task_description_file, best_practices_file):

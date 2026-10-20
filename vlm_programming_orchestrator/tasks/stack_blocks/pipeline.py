@@ -16,6 +16,7 @@ def plan_stacking_trajectory(
     where_to_stack="the middle of the white paper",
     config=None,
     vision_backend="gemini_realsense",
+    vlm_model="gemini-robotics-er-2-preview",
 ):
     """
     Plan a trajectory for stacking objects on top of each other.
@@ -57,6 +58,7 @@ def plan_stacking_trajectory(
     detector = get_detector_backend(
         vision_backend, api_key,
         exposure=exposure, contrast=contrast, brightness_target=brightness_target,
+        model_id=vlm_model,
     )
     image, depth_frame, depth_intrinsic = detector.capture_realsense_image(
         "0_raw_realsense_capture.png")
