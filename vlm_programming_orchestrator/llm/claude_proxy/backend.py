@@ -37,7 +37,7 @@ def _stream_llm_response(llm_api_url, messages, model=None, events=None):
     """
     payload = {"messages": messages}
     if model:
-        payload["model"] = model
+        payload["aiModel"] = model
 
     if events is not None:
         events.llm_stream_start()
